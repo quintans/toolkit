@@ -28,19 +28,23 @@ func (this *StrBuffer) Add(a ...interface{}) *StrBuffer {
 			isNil = true
 		} else {
 			val = reflect.ValueOf(v)
-			if val.Kind() == reflect.Ptr {
-				if val.IsNil() {
-					isNil = true
-				} else {
-					val = val.Elem()
-				}
+			if val.Kind() == reflect.Ptr && val.IsNil() {
+				isNil = true
 			}
 		}
 
 		if isNil {
 			this.buffer.WriteString("<nil>")
 		} else {
-			this.buffer.WriteString(fmt.Sprint(val.Interface()))
+			x := val.Interface()
+			if t, isT := x.(fmt.Stringer); isT {
+				this.buffer.WriteString(t.String())
+			} else {
+				if val.Kind() == reflect.Ptr {
+					x = val.Elem().Interface()
+				}
+				this.buffer.WriteString(fmt.Sprint(x))
+			}
 		}
 	}
 	return this

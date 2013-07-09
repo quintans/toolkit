@@ -22,3 +22,5 @@ The most relevant are:
 	- HashSet
 	- LinkedHashSet
 - QuickSort
+
+# Credits
