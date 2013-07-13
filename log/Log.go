@@ -231,7 +231,6 @@ func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 		} else {
 			str += format + "\n"
 		}
-		//fmt.Printf("=====> %s", str)
 		flush(str, this.worker.Writers)
 	}
 }
