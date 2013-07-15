@@ -23,4 +23,8 @@ The most relevant are:
 	- LinkedHashSet
 - QuickSort
 
+# Dependencies
+
+https://code.google.com/p/go-uuid/
+
 # Credits

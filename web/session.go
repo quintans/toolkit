@@ -1,9 +1,10 @@
 package web
 
 import (
-	"go-uuid/uuid"
-	"net/http"
+	"code.google.com/p/go-uuid/uuid"
 	"github.com/quintans/toolkit/cache"
+
+	"net/http"
 	"strings"
 	"time"
 )
