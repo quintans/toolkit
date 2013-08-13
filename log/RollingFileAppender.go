@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-const COUNTER_SEP = "-"
-
 var _ LogWriter = &RollingFileAppender{}
 
 func NewRollingFileAppender(file string, size int64, count int, async bool) *RollingFileAppender {
@@ -37,7 +35,7 @@ func NewRollingFileAppender(file string, size int64, count int, async bool) *Rol
 	if lastName != "" {
 		name, _ := splitNameExt(lastName)
 		parts := strings.Split(name, COUNTER_SEP)
-		this.currentCount, err = strconv.Atoi(parts[1])
+		this.currentCount, err = strconv.Atoi(parts[len(parts)-1])
 		if err != nil {
 			panic(err)
 		}
@@ -63,10 +61,12 @@ func splitNameExt(file string) (string, string) {
 	}
 }
 
-// Roll the log file over a range of files once they go over the maxsize.
-// If maxsize == 0, then the log file will never rool.
-// If count == 0, then the backup log files will be infinite.
-// The format of the backup log files will be <name>-<counter>.<extension>
+/*
+Roll the log file over a range of files once they go over the maxsize.
+If maxsize == 0, then the log file will never rool.
+If count == 0, then the backup log files will be infinite.
+The format of the backup log files will be <name>-<counter>.<extension>
+*/
 type RollingFileAppender struct {
 	name            string
 	ext             string
@@ -102,7 +102,7 @@ func (this *RollingFileAppender) fullName() string {
 }
 
 func (this *RollingFileAppender) Write(p []byte) (n int, err error) {
-	if this.written > this.maxsize {
+	if this.maxsize > 0 && this.written > this.maxsize {
 		this.rollFile()
 	}
 
