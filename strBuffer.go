@@ -22,32 +22,36 @@ func NewStrBuffer(str ...interface{}) *StrBuffer {
 
 func (this *StrBuffer) Add(a ...interface{}) *StrBuffer {
 	for _, v := range a {
-		var isNil bool
-		var val reflect.Value
-		if v == nil {
-			isNil = true
-		} else {
-			val = reflect.ValueOf(v)
-			if val.Kind() == reflect.Ptr && val.IsNil() {
-				isNil = true
-			}
-		}
-
-		if isNil {
-			this.buffer.WriteString("<nil>")
-		} else {
-			x := val.Interface()
-			if t, isT := x.(fmt.Stringer); isT {
-				this.buffer.WriteString(t.String())
-			} else {
-				if val.Kind() == reflect.Ptr {
-					x = val.Elem().Interface()
-				}
-				this.buffer.WriteString(fmt.Sprint(x))
-			}
-		}
+		this.buffer.WriteString(ToString(v))
 	}
 	return this
+}
+
+func ToString(v interface{}) string {
+	var isNil bool
+	var val reflect.Value
+	if v == nil {
+		isNil = true
+	} else {
+		val = reflect.ValueOf(v)
+		if val.Kind() == reflect.Ptr && val.IsNil() {
+			isNil = true
+		}
+	}
+
+	if isNil {
+		return "<nil>"
+	} else {
+		x := val.Interface()
+		if t, isT := x.(fmt.Stringer); isT {
+			return t.String()
+		} else {
+			if val.Kind() == reflect.Ptr {
+				x = val.Elem().Interface()
+			}
+			return fmt.Sprint(x)
+		}
+	}
 }
 
 func (this *StrBuffer) Size() int {
