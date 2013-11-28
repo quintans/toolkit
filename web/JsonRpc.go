@@ -3,19 +3,15 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	tk "github.com/quintans/toolkit"
 	"github.com/quintans/toolkit/log"
+	"io/ioutil"
+	"net/http"
 	"reflect"
 	"unicode"
 )
 
 var logger = log.LoggerFor("github.com/quintans/toolkit/web")
-
-func init() {
-	logger.CallDepth(1)
-}
 
 // Makes a struct responsible for handling json-rpc calls.
 // The endpoint will be composet by the service name and action name. ex order/item
@@ -232,7 +228,7 @@ func (this *JsonRpc) RegisterAs(name string, svc interface{}) *Service {
 			} else if size > 2 {
 				t := p.Type.In(1)
 				if t != contextType {
-					panic(fmt.Sprintf("Invalid service %s.%s. In a two paramter action the first must be the interface web.IContext.",
+					panic(fmt.Sprintf("Invalid service %s.%s. In a two paramater action the first must be the interface web.IContext.",
 						typ.Elem().Name(), p.Name))
 				}
 			}

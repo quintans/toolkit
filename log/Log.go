@@ -1,6 +1,7 @@
 package log
 
 import (
+	"bytes"
 	"container/list"
 	"fmt"
 	"io"
@@ -31,8 +32,11 @@ type LogMaster struct {
 }
 
 var (
-	logMaster  = &LogMaster{}
-	msgChannel chan LogMsg
+	logMaster    = &LogMaster{}
+	msgChannel   chan LogMsg
+	showLevel    = true
+	showCaller   bool
+	timeFormater func(time.Time) string
 )
 
 func init() {
@@ -41,6 +45,7 @@ func init() {
 	Register("/", DEBUG, NewConsoleAppender(false))
 	// buffered channels are asynchronous
 	msgChannel = make(chan LogMsg, 100)
+	SetTimeFormat("%Y/%02M/%02D %02h:%02m:%02s.%03x")
 	go log()
 }
 
@@ -96,9 +101,18 @@ func Register(namespace string, level LogLevel, writers ...LogWriter) {
 }
 
 func LoggerFor(namespace string) *Logger {
+	namespace = normalizeNamespace(namespace)
 	logger := new(Logger)
 	logger.tag = namespace
 	return logger
+}
+
+func ShowLevel(show bool) {
+	showLevel = true
+}
+
+func ShowCaller(show bool) {
+	showCaller = true
 }
 
 func (this *LogMaster) fetchWorker(tag string) *Worker {
@@ -129,22 +143,87 @@ func log() {
 	}
 }
 
+const (
+	mark   = '%'
+	tokens = "YMDhmsx"
+)
+
+// available formats: Y,M,D,h,m,s,x.
+// these format will be replaced by 'd' and used normaly with fmt.Sprintf
+func SetTimeFormat(format string) {
+	if format == "" {
+		timeFormater = nil
+		return
+	}
+
+	newFormat := format
+	keys := make([]rune, 0)
+	guard := false
+	last := false
+	for k, v := range format {
+		if v == mark {
+			// check if previous was %
+			if last {
+				last = false
+				guard = false
+			} else {
+				last = true
+				guard = true
+			}
+		} else if x := isToken(v); guard && x != 0 {
+			keys = append(keys, x)
+			newFormat = newFormat[:k] + "d" + newFormat[k+1:]
+			last = false
+			guard = false
+		} else {
+			last = false
+		}
+	}
+	timeFormater = func(t time.Time) string {
+		params := make([]interface{}, 0)
+		for _, v := range keys {
+			switch v {
+			case 'Y':
+				params = append(params, t.Year())
+			case 'M':
+				params = append(params, t.Month())
+			case 'D':
+				params = append(params, t.Day())
+			case 'h':
+				params = append(params, t.Hour())
+			case 'm':
+				params = append(params, t.Minute())
+			case 's':
+				params = append(params, t.Second())
+			case 'x':
+				params = append(params, t.Nanosecond()/1e6)
+
+			}
+		}
+		return fmt.Sprintf(newFormat, params...)
+	}
+}
+
+func isToken(t rune) rune {
+	for _, v := range tokens {
+		if t == v {
+			return v
+		}
+	}
+	return 0
+}
+
 type LogLevel int
 
+var logLevels = [...]string{"DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
+
 func (this LogLevel) String() string {
-	switch this {
-	case DEBUG:
-		return "DEBUG"
-	case INFO:
-		return "INFO"
-	case WARN:
-		return "WARN"
-	case ERROR:
-		return "ERROR"
-	case FATAL:
-		return "FATAL"
+	var level = int(this)
+	if level >= 0 && level <= len(logLevels) {
+		return logLevels[level]
+	} else {
+		return ""
 	}
-	return ""
 }
 
 const (
@@ -155,6 +234,16 @@ const (
 	FATAL
 	NONE
 )
+
+func ParseLevel(name string, optional LogLevel) LogLevel {
+	name = strings.ToUpper(name)
+	for k, v := range logLevels {
+		if v == name {
+			return LogLevel(k)
+		}
+	}
+	return optional
+}
 
 type Logger struct {
 	sync.Mutex
@@ -184,15 +273,36 @@ func (this *Logger) Namespace() string {
 	return this.tag
 }
 
-func (this *Logger) CallDepth(depth int) {
+func (this *Logger) SetCallerAt(depth int) {
 	this.calldepth = depth
+}
+
+func (this *Logger) CallerAt(depth int) *Logger {
+	// creates a temporary logger
+	tmp := LoggerFor(this.tag)
+	tmp.calldepth = depth
+	return tmp
 }
 
 func (this *Logger) logStamp(level LogLevel) string {
 	t := time.Now()
-	var fl string
-	if this.calldepth > 0 {
-		_, file, line, ok := runtime.Caller(this.calldepth + 2)
+	var result bytes.Buffer
+	if timeFormater != nil {
+		result.WriteString(timeFormater(t))
+	}
+
+	if showLevel {
+		if result.Len() > 0 {
+			result.WriteString(" ")
+		}
+		result.WriteString(level.String())
+	}
+
+	if showCaller {
+		if result.Len() > 0 {
+			result.WriteString(" ")
+		}
+		_, file, line, ok := runtime.Caller(this.calldepth + 3)
 		if ok {
 			short := file
 			for i := len(file) - 1; i > 0; i-- {
@@ -203,20 +313,15 @@ func (this *Logger) logStamp(level LogLevel) string {
 			}
 			file = short
 		} else {
-			file = "<Undetermined Caller>"
+			file = "???"
 			line = 0
 		}
-		fl = fmt.Sprintf(" %s:%d", file, line)
+		if result.Len() > 0 {
+			result.WriteString(fmt.Sprintf("[%s:%d]", file, line))
+		}
 	}
-	return fmt.Sprintf("%d/%02d/%02d-%02d:%02d:%02d %s%s: ",
-		t.Year(),
-		t.Month(),
-		t.Day(),
-		t.Hour(),
-		t.Minute(),
-		t.Second(),
-		level,
-		fl)
+	result.WriteString(": ")
+	return result.String()
 }
 
 func (this *Logger) IsActive(level LogLevel) bool {

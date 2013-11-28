@@ -42,12 +42,12 @@ func (this *ExpirationCache) cleanup() {
 // Delete all expired items from the cache.
 func (this *ExpirationCache) deleteExpired() {
 	this.Lock()
+	defer this.Unlock()
 	for k, v := range this.items {
 		if v.expired() {
 			delete(this.items, k)
 		}
 	}
-	this.Unlock()
 }
 
 func (this *ExpirationCache) GetIfPresentAndTouch(key string) interface{} {
