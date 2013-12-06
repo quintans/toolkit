@@ -106,7 +106,7 @@ func (this *RollingFileAppender) Write(p []byte) (n int, err error) {
 		this.rollFile()
 	}
 
-	fo, err := os.OpenFile(this.currentFilename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0)
+	fo, err := os.OpenFile(this.currentFilename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic(err)
 	}
