@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	GSESSION = "GSESSION"
+	COOKIE_NAME = "GSESSION"
 )
 
 type ISession interface {
@@ -67,29 +67,44 @@ func (this *Session) Put(key string, value interface{}) {
 	this.Attributes[key] = value
 }
 
-type Sessions struct {
-	factory func() ISession
-	cache   *cache.ExpirationCache
+type SessionsConfig struct {
+	Timeout    time.Duration
+	Interval   time.Duration
+	Factory    func() ISession
+	CookieName string
 }
 
-func NewSessions(timeout time.Duration, interval time.Duration, factory func() ISession) *Sessions {
+type Sessions struct {
+	config SessionsConfig
+	cache  *cache.ExpirationCache
+}
+
+func NewSessions(config SessionsConfig) *Sessions {
 	s := new(Sessions)
-	if factory != nil {
-		s.factory = factory
-	} else {
+	if int64(config.Timeout) == 0 {
+		config.Timeout = 20 * time.Minute
+	}
+	if int64(config.Interval) == 0 {
+		config.Interval = time.Minute
+	}
+	if config.Factory == nil {
 		// default factory
-		s.factory = func() ISession {
+		config.Factory = func() ISession {
 			return NewSession()
 		}
 	}
-	s.cache = cache.NewExpirationCache(timeout, interval)
+	if config.CookieName == "" {
+		config.CookieName = COOKIE_NAME
+	}
+	s.config = config
+	s.cache = cache.NewExpirationCache(config.Timeout, config.Interval)
 	return s
 }
 
 func (this *Sessions) createCookieAndSession(w http.ResponseWriter) ISession {
 	s := this.CreateNewSession()
 
-	c := &http.Cookie{Name: GSESSION, Value: s.GetId(), Path: "/"}
+	c := &http.Cookie{Name: this.config.CookieName, Value: s.GetId(), Path: "/"}
 	http.SetCookie(w, c)
 
 	return s
@@ -98,7 +113,7 @@ func (this *Sessions) createCookieAndSession(w http.ResponseWriter) ISession {
 // gets the session identified by id.
 // If not found and if 'create' equals to 'true' then creates a new session
 func (this *Sessions) GetOrCreate(w http.ResponseWriter, r *http.Request, create bool) ISession {
-	cookie, _ := r.Cookie(GSESSION)
+	cookie, _ := r.Cookie(this.config.CookieName)
 
 	if cookie == nil {
 		if create {
@@ -125,7 +140,7 @@ func (this *Sessions) GetOrCreate(w http.ResponseWriter, r *http.Request, create
 }
 
 func (this *Sessions) Delete(r *http.Request) {
-	cookie, _ := r.Cookie(GSESSION)
+	cookie, _ := r.Cookie(this.config.CookieName)
 	if cookie != nil {
 		this.cache.Delete(cookie.Value)
 	}
@@ -146,7 +161,7 @@ func (this *Sessions) GetIfPresent(id string) ISession {
 }
 
 func (this *Sessions) CreateNewSession() ISession {
-	s := this.factory()
+	s := this.config.Factory()
 	this.cache.Put(s.GetId(), s)
 	return s
 }
