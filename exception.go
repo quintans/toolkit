@@ -7,8 +7,8 @@ type Fault interface {
 }
 
 type Fail struct {
-	Code    string
-	Message string
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 func (this *Fail) GetCode() string {
