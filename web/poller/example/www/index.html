@@ -1,45 +1,63 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Poller</title>
-    <meta http-equiv="expires" content="0">
+<head>
+<meta charset="utf-8">
+<title>Poller</title>
+<meta http-equiv="expires" content="0">
 
-  </head>
-  <body>
-    <div>
-      <input type="text" id="in"></input>
-      <button id="sender">Send</button>
-    </div>
-    <div>
-      <label id="result"></label>
-    </div>
+</head>
+<body>
+	<div>
+		<button id="start">Start</button>
+		<button id="stop">Stop</button>
+	</div>
+	<div>
+		<input type="text" id="in"></input>
+		<button id="sender">Send</button>
+	</div>
+	<div>
+		<label id="result"></label>
+	</div>
 
 	<!-- Placed at the end of the document so the pages load faster -->
-	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js" type="text/javascript"></script>
+	<script
+		src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"
+		type="text/javascript"></script>
 
 	<script src="poller.js"></script>
-	 <script type="text/javascript">
-	  $(function(){
-	    $('#sender').click(function(){
-	      var value = $('#in').val();
-	      
-	      $.ajax({
-		url: '/test',
-		type: 'GET',
-		dataType: 'json',
-		cache: false,
-		data: {'data': value}
-	      });
-	    });
-	    
-	    new Poller('/feed', {timeout: 30000})
-	    .onMessage('boardChange', function(data){
-	      // do stuff
-	      $('#result').text(data);
-	    })
-	    .poll();
-	  });
-    </script>
-  </body>
+	<script type="text/javascript">
+		$(function() {
+			var p = new Poller('/feed', {
+				timeout : 30000
+			});
+			p.onMessage('boardChange', function(data) {
+				// do your stuff
+				$('#result').text(data);
+			}).connect();
+
+			$('#start').click(function() {
+				p.connect();
+			});
+				
+			$('#stop').click(function() {
+				p.disconnect();
+			});
+			
+			$('#sender').click(function() {
+				var value = $('#in').val();
+
+				$.ajax({
+					url : '/test',
+					type : 'GET',
+					dataType : 'json',
+					cache : false,
+					data : {
+						'data' : value
+					}
+				});
+			});
+
+		});
+	</script>
+</body>
 </html>

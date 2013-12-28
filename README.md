@@ -9,6 +9,7 @@ The most relevant are:
 	- JSON-RPC Server
 	- Session Management
 	- Only Files File System
+	- Long Polling (xhr)
 - Log
 	- Logging with Asynchronous Writers and Hierarchy Log Levels
 	- ConsoleAppender
@@ -21,6 +22,7 @@ The most relevant are:
 	- LinkedHashMap
 	- HashSet
 	- LinkedHashSet
+	- FIFO
 - QuickSort
 
 # Dependencies
