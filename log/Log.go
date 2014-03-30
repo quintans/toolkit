@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
-	"io"
 	"runtime"
 	"strings"
 	"sync"
@@ -22,18 +21,13 @@ type LogHandler struct {
 	Worker  *Worker
 }
 
-type LogMsg struct {
-	Message string
-	Out     LogWriter
-}
-
 type LogMaster struct {
 	workers *list.List
 }
 
 var (
 	logMaster    = &LogMaster{}
-	msgChannel   chan LogMsg
+	quit         = make(chan struct{})
 	showLevel    = true
 	showCaller   bool
 	timeFormater func(time.Time) string
@@ -42,11 +36,8 @@ var (
 func init() {
 	logMaster.workers = list.New()
 	// root logger
-	Register("/", DEBUG, NewConsoleAppender(false))
-	// buffered channels are asynchronous
-	msgChannel = make(chan LogMsg, 100)
+	Register("/", DEBUG, NewNullAppender())
 	SetTimeFormat("%Y/%02M/%02D %02h:%02m:%02s.%03x")
-	go log()
 }
 
 /*
@@ -84,6 +75,12 @@ func Register(namespace string, level LogLevel, writers ...LogWriter) {
 	for e := logMaster.workers.Front(); e != nil; e = e.Next() {
 		wrk := e.Value.(*Worker)
 		if namespace == wrk.Prefix {
+			// stop the old writers if new ones are defined
+			if writers != nil {
+				for _, w := range wrk.Writers {
+					w.Discard()
+				}
+			}
 			// replace
 			e.Value = worker
 			processed = true
@@ -126,20 +123,12 @@ func (this *LogMaster) fetchWorker(tag string) *Worker {
 	panic(fmt.Sprintf("No Worker was found for %s", namespace))
 }
 
-func shutdown() {
-	// signal shutdown to the go routine
-	close(msgChannel)
-}
-
-func log() {
-	for {
-		msg, ok := <-msgChannel
-		if !ok {
-			// EXIT
-			return
+func Shutdown() {
+	for e := logMaster.workers.Front(); e != nil; e = e.Next() {
+		wrk := e.Value.(*Worker)
+		for _, w := range wrk.Writers {
+			w.Discard()
 		}
-
-		msg.Out.Write([]byte(msg.Message))
 	}
 }
 
@@ -336,29 +325,25 @@ func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 		} else {
 			str += format + "\n"
 		}
-		flush(str, this.worker.Writers)
+		flush(level, str, this.worker.Writers)
 	}
 }
 
 func (this *Logger) logF(level LogLevel, handler func() string) {
 	if this.IsActive(level) {
 		str := this.logStamp(level) + handler() + "\n"
-		flush(str, this.worker.Writers)
+		flush(level, str, this.worker.Writers)
 	}
 }
 
 type LogWriter interface {
-	io.Writer
-	IsAsync() bool
+	Discard()
+	Log(LogLevel, string)
 }
 
-func flush(msg string, workers []LogWriter) {
+func flush(msgLevel LogLevel, msg string, workers []LogWriter) {
 	for _, v := range workers {
-		if v.IsAsync() {
-			msgChannel <- LogMsg{msg, v}
-		} else {
-			v.Write([]byte(msg))
-		}
+		v.Log(msgLevel, msg)
 	}
 }
 

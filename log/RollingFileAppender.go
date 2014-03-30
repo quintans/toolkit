@@ -12,6 +12,9 @@ var _ LogWriter = &RollingFileAppender{}
 
 func NewRollingFileAppender(file string, size int64, count int, async bool) *RollingFileAppender {
 	this := new(RollingFileAppender)
+	//RootAppender uses it this.Writer
+	this.Writer = this
+
 	this.name, this.ext = splitNameExt(file)
 
 	this.maxsize = size
@@ -47,7 +50,10 @@ func NewRollingFileAppender(file string, size int64, count int, async bool) *Rol
 	}
 	this.currentFilename = this.fullName()
 
-	this.async = async
+	if async {
+		this.Channel = make(chan string, 10)
+		go AsyncWriter(this.Channel, this)
+	}
 	return this
 }
 
@@ -68,6 +74,7 @@ If count == 0, then the backup log files will be infinite.
 The format of the backup log files will be <name>-<counter>.<extension>
 */
 type RollingFileAppender struct {
+	RootAppender
 	name            string
 	ext             string
 	currentFilename string
@@ -75,12 +82,6 @@ type RollingFileAppender struct {
 	written         int64
 	count           int
 	currentCount    int
-	async           bool
-}
-
-// mark as AsyncLog
-func (this *RollingFileAppender) IsAsync() bool {
-	return this.async
 }
 
 func (this *RollingFileAppender) rollFile() {

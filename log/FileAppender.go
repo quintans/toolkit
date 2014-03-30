@@ -7,10 +7,13 @@ import (
 
 const COUNTER_SEP = "-"
 
+// check if it implements LogWriter interface
 var _ LogWriter = &FileAppender{}
 
 func NewFileAppender(file string, size int64, resetOnStartup bool, async bool) *FileAppender {
 	this := new(FileAppender)
+	//RootAppender uses it this.Writer
+	this.Writer = this
 
 	this.maxsize = size
 
@@ -25,7 +28,10 @@ func NewFileAppender(file string, size int64, resetOnStartup bool, async bool) *
 		this.resetFile()
 	}
 
-	this.async = async
+	if async {
+		this.Channel = make(chan string, 10)
+		go AsyncWriter(this.Channel, this)
+	}
 	return this
 }
 
@@ -34,15 +40,10 @@ Resets the log file as soon it goe over the maxsize.
 If maxsize == 0, then the log file will never reset.
 */
 type FileAppender struct {
+	RootAppender
 	currentFilename string
 	maxsize         int64
 	written         int64
-	async           bool
-}
-
-// mark as AsyncLog
-func (this *FileAppender) IsAsync() bool {
-	return this.async
 }
 
 func (this *FileAppender) resetFile() error {
@@ -62,7 +63,7 @@ func (this *FileAppender) Write(p []byte) (n int, err error) {
 		}
 	}
 
-	fo, err := os.OpenFile(this.currentFilename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0)
+	fo, err := os.OpenFile(this.currentFilename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		panic(err)
 	}
