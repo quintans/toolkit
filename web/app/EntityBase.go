@@ -9,17 +9,11 @@ type IEntity interface {
 	SetId(*int64)
 	GetVersion() *int64
 	SetVersion(*int64)
-	GetCreation() *Date
-	SetCreation(*Date)
-	GetModification() *Date
-	SetModification(*Date)
 }
 
 type EntityBase struct {
-	Id           *int64 `json:"id"`
-	Version      *int64 `json:"version"`
-	Creation     *Date  `json:"creation"`
-	Modification *Date  `json:"modification"`
+	Id      *int64 `json:"id"`
+	Version *int64 `json:"version"`
 }
 
 func (this *EntityBase) GetId() *int64 {
@@ -38,27 +32,9 @@ func (this *EntityBase) SetVersion(version *int64) {
 	this.Version = version
 }
 
-func (this *EntityBase) GetCreation() *Date {
-	return this.Creation
-}
-
-func (this *EntityBase) SetCreation(creation *Date) {
-	this.Creation = creation
-}
-
-func (this *EntityBase) GetModification() *Date {
-	return this.Modification
-}
-
-func (this *EntityBase) SetModification(modification *Date) {
-	this.Modification = modification
-}
-
 func (this *EntityBase) Copy(entity EntityBase) {
 	this.Id = CloneInt64(entity.Id)
 	this.Version = CloneInt64(entity.Version)
-	this.Creation = CloneDate(entity.Creation)
-	this.Modification = CloneDate(entity.Modification)
 }
 
 func CopyCurrency(value *float64) *float64 {

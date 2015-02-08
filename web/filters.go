@@ -1,8 +1,8 @@
 package web
 
 import (
-	"net/http"
 	tk "github.com/quintans/toolkit"
+	"net/http"
 	"strings"
 )
 
@@ -27,6 +27,8 @@ type IContext interface {
 	GetRequest() *http.Request
 	GetSession() ISession
 	SetSession(ISession)
+	GetPrincipal() interface{}
+	SetPrincipal(interface{})
 	GetAttribute(string) interface{}
 	SetAttribute(string, interface{})
 	GetCurrentFilter() *Filter
@@ -39,10 +41,13 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 	return this
 }
 
+var _ IContext = &Context{}
+
 type Context struct {
 	Response      http.ResponseWriter
 	Request       *http.Request
 	Session       ISession
+	Principal     interface{}            // user data
 	Attributes    map[string]interface{} // attributes only valid in this request
 	CurrentFilter *Filter
 	overrider     IContext
@@ -61,6 +66,8 @@ func (this *Context) Proceed() error {
 		this.CurrentFilter = next
 		// is this filter applicable?
 		if next.IsValid(this.overrider) {
+			// TODO replace this with a logger
+			//fmt.Printf("===> applying filter with rule '%s'\n", next.rule)
 			return next.Apply(this.overrider)
 		} else {
 			// proceed to next filter
@@ -69,6 +76,8 @@ func (this *Context) Proceed() error {
 		//} else {
 		//	http.Error(this.Response, "Page Not Found", http.StatusNotFound)
 	}
+	// TODO replace this with a logger
+	//fmt.Printf("===> unable to proceed from filter with rule '%s'\n", this.CurrentFilter.rule)
 	return nil
 }
 
@@ -90,6 +99,14 @@ func (this *Context) GetSession() ISession {
 
 func (this *Context) SetSession(session ISession) {
 	this.Session = session
+}
+
+func (this *Context) GetPrincipal() interface{} {
+	return this.Principal
+}
+
+func (this *Context) SetPrincipal(principal interface{}) {
+	this.Principal = principal
 }
 
 func (this *Context) GetAttribute(key string) interface{} {

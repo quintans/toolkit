@@ -1,11 +1,11 @@
 package web
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/quintans/toolkit/cache"
 
+	"crypto/rand"
+	"encoding/base64"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -35,7 +35,10 @@ type Session struct {
 }
 
 func (this *Session) Init() {
-	this.Id = strings.Replace(uuid.New(), "-", "", -1)
+	//Generate random bytes
+	b := make([]byte, 32)
+	rand.Read(b)
+	this.Id = base64.URLEncoding.EncodeToString(b)
 	this.Attributes = make(map[string]interface{})
 }
 

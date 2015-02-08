@@ -51,14 +51,14 @@ func Save(DB db.IDb, table *db.Table, entity IEntity) error {
 
 	if entity.GetVersion() == nil {
 		entity.SetVersion(Int64Ptr(1))
-		entity.SetCreation(NOW())
+		//entity.SetCreation(NOW()) -> PreInsert
 		id, err := DB.Insert(table).Submit(entity)
 		if err != nil {
 			return err
 		}
 		entity.SetId(&id)
 	} else {
-		entity.SetModification(NOW())
+		//entity.SetModification(NOW()) -> PreUpdate
 		_, err := DB.Update(table).Submit(entity)
 		if err != nil {
 			return err
