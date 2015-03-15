@@ -2,6 +2,7 @@ package toolkit
 
 import (
 	"reflect"
+	"time"
 )
 
 func Match(o1 interface{}, o2 interface{}) bool {
@@ -48,4 +49,8 @@ func Set(instance interface{}, value interface{}) {
 		r = r.Elem()
 	}
 	v.Set(r)
+}
+
+func Milliseconds() int64 {
+	return time.Now().UnixNano() / int64(1e6)
 }

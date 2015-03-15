@@ -1,8 +1,11 @@
 package app
 
 import (
+	"reflect"
+
 	"github.com/quintans/goSQL/db"
 	"github.com/quintans/goSQL/dbx"
+	tk "github.com/quintans/toolkit"
 	coll "github.com/quintans/toolkit/collection"
 	. "github.com/quintans/toolkit/ext"
 	"github.com/quintans/toolkit/log"
@@ -58,6 +61,7 @@ func Save(DB db.IDb, table *db.Table, entity IEntity) error {
 		}
 		entity.SetId(&id)
 	} else {
+		// TODO should check the deletion column in the where clause
 		//entity.SetModification(NOW()) -> PreUpdate
 		_, err := DB.Update(table).Submit(entity)
 		if err != nil {
@@ -117,7 +121,7 @@ func SoftDeleteByIdAndVersion(DB db.IDb, table *db.Table, id int64, version int6
 	versionColumn := table.GetVersionColumn()
 
 	result, err := DB.Update(table).
-		Set(deletion, nil).
+		Set(deletion, tk.Milliseconds()).
 		Set(versionColumn, version+1).
 		Where(
 		keyColumn.Matches(id),
@@ -210,8 +214,8 @@ func AddRangeCriteria(conditions []*db.Criteria, column *db.Column, leftBound in
 func QueryForPage(
 	query *db.Query,
 	criteria Criteria,
-	instance interface{},
-	transformer func(interface{}) (interface{}, error),
+	target interface{},
+	transformer func(in interface{}) interface{},
 ) (Page, error) {
 	max := criteria.PageSize
 	first := (criteria.Page - 1) * max
@@ -221,23 +225,27 @@ func QueryForPage(
 		query.Limit(max + 1)
 	}
 
-	entities, err := query.ListFlatTreeOf(instance)
+	var entities coll.Collection
+	var err error
+	var results []interface{}
+
+	if reflect.TypeOf(target).Kind() == reflect.Func {
+		results, err = query.ListInto(target)
+	} else if _, ok := target.(tk.Hasher); ok {
+		entities, err = query.ListFlatTreeOf(target)
+	} else {
+		entities, err = query.ListOf(target)
+	}
 	if err != nil {
 		return Page{}, err
 	}
 
-	results := entities.Elements()
-	if transformer != nil {
-		for k, v := range results {
-			results[k], err = transformer(v)
-			if err != nil {
-				return Page{}, err
-			}
-		}
+	if results == nil {
+		results = entities.Elements()
 	}
 
 	page := Page{}
-	size := int64(entities.Size())
+	size := int64(len(results))
 	if max > 0 && size > max {
 		page.Last = false
 		page.Results = results[:max]
@@ -246,13 +254,20 @@ func QueryForPage(
 		page.Results = results
 	}
 
+	// transform results
+	if transformer != nil {
+		for k, v := range page.Results {
+			page.Results[k] = transformer(v)
+		}
+	}
+
 	// count records
 	if criteria.CountRecords {
 		DB := query.GetDb()
 		cnt := DB.Query(query.GetTable())
 		cnt.Copy(query)
 		cnt.ColumnsReset()
-		cnt.Column(db.Count(nil))
+		cnt.CountAll()
 		cnt.OrdersReset()
 		var recs int64
 		_, err = cnt.SelectInto(&recs)

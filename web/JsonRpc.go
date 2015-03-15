@@ -34,26 +34,38 @@ const (
 type Action struct {
 	hasContext  bool
 	payloadType reflect.Type
-	filter      *Filter
+	first       *Filter
+	last        *Filter
+	callFilter  *Filter
 }
 
 func (this *Action) PushFilterFunc(filters ...func(ctx IContext) error) {
 	for _, filter := range filters {
 		current := &Filter{
-			next:        this.filter,
+			next:        this.callFilter,
 			handlerFunc: filter,
 		}
-		this.filter = current
+		if this.first == nil {
+			this.first = current
+		} else {
+			this.last.next = current
+		}
+		this.last = current
 	}
 }
 
 func (this *Action) PushFilter(filters ...Filterer) {
 	for _, filter := range filters {
 		current := &Filter{
-			next:    this.filter,
+			next:    this.callFilter,
 			handler: filter,
 		}
-		this.filter = current
+		if this.first == nil {
+			this.first = current
+		} else {
+			this.last.next = current
+		}
+		this.last = current
 	}
 }
 
@@ -70,13 +82,13 @@ func (this *Service) GetAction(actionName string) *Action {
 	return action
 }
 
-// the last added filter will be the first to be called
+// the first added filter will be the first to be called
 func (this *Service) PushFilterFunc(actionName string, filters ...func(ctx IContext) error) {
 	action := this.GetAction(actionName)
 	action.PushFilterFunc(filters...)
 }
 
-// the last added filter will be the first to be called
+// the first added filter will be the first to be called
 func (this *Service) PushFilter(actionName string, filters ...Filterer) {
 	action := this.GetAction(actionName)
 	action.PushFilter(filters...)
@@ -153,9 +165,9 @@ func (this *JsonRpc) Handle(ctx IContext) error {
 		payload: payload,
 	}
 	ctx.SetAttribute(CALL, call)
-	ctx.SetCurrentFilter(act.filter)
+	ctx.SetCurrentFilter(act.first)
 	// call filter
-	err = act.filter.Apply(ctx)
+	err = act.first.Apply(ctx)
 
 	if err != nil {
 		return err
@@ -257,7 +269,7 @@ func (this *JsonRpc) RegisterAs(name string, svc interface{}) *Service {
 					typ.Elem().Name(), p.Name))
 			}
 
-			action.filter = &Filter{handlerFunc: invokeFilter}
+			action.callFilter = &Filter{handlerFunc: invokeFilter}
 			actions[p.Name] = action
 		}
 	}

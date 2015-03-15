@@ -1,9 +1,10 @@
 package web
 
 import (
-	tk "github.com/quintans/toolkit"
 	"net/http"
 	"strings"
+
+	tk "github.com/quintans/toolkit"
 )
 
 func NewHttpFail(status int, code string, message string) *HttpFail {
@@ -168,6 +169,7 @@ func NewFilterHandler(contextFactory func(w http.ResponseWriter, r *http.Request
 
 type FilterHandler struct {
 	first          *Filter
+	last           *Filter
 	contextFactory func(w http.ResponseWriter, r *http.Request) IContext
 }
 
@@ -193,10 +195,14 @@ func (this *FilterHandler) PushF(rule string, filters ...func(ctx IContext) erro
 	for _, filter := range filters {
 		current := &Filter{
 			rule:        rule,
-			next:        this.first,
 			handlerFunc: filter,
 		}
-		this.first = current
+		if this.first == nil {
+			this.first = current
+		} else {
+			this.last.next = current
+		}
+		this.last = current
 	}
 }
 
@@ -205,9 +211,13 @@ func (this *FilterHandler) Push(rule string, filters ...Filterer) {
 	for _, filter := range filters {
 		current := &Filter{
 			rule:    rule,
-			next:    this.first,
 			handler: filter,
 		}
-		this.first = current
+		if this.first == nil {
+			this.first = current
+		} else {
+			this.last.next = current
+		}
+		this.last = current
 	}
 }
