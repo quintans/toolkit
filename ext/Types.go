@@ -92,55 +92,160 @@ func (this Str) Value() (driver.Value, error) {
 	return string(this), nil
 }
 
-// LONG
+// Byte
+type Unit byte
 
-type Int64 int64
-
-func NewInt64(val Int64) *Int64 {
+func NewUnit(val Unit) *Unit {
 	return &val
 }
 
-func (this Int64) HashCode() int {
+func (this Unit) HashCode() int {
+	return tk.HashUnit(tk.HASH_SEED, byte(this))
+}
+
+func (this Unit) Equals(other interface{}) bool {
+	s, _ := other.(Unit)
+	return this == s
+}
+
+// Tiny
+type Tiny int8
+
+func NewTiny(val Tiny) *Tiny {
+	return &val
+}
+
+func (this Tiny) HashCode() int {
+	return tk.HashTiny(tk.HASH_SEED, int8(this))
+}
+
+func (this Tiny) Equals(other interface{}) bool {
+	s, _ := other.(Tiny)
+	return this == s
+}
+
+func (this Tiny) String() string {
+	return fmt.Sprint(int8(this))
+}
+
+// Short
+type Short int16
+
+func NewShort(val Short) *Short {
+	return &val
+}
+
+func (this Short) HashCode() int {
+	return tk.HashShort(tk.HASH_SEED, int16(this))
+}
+
+func (this Short) Equals(other interface{}) bool {
+	s, _ := other.(Short)
+	return this == s
+}
+
+func (this Short) String() string {
+	return fmt.Sprint(int16(this))
+}
+
+// Integer
+type Integer int32
+
+func NewInt(val Integer) *Integer {
+	return &val
+}
+
+func (this Integer) HashCode() int {
+	return tk.HashInteger(tk.HASH_SEED, int32(this))
+}
+
+func (this Integer) Equals(other interface{}) bool {
+	s, _ := other.(Integer)
+	return this == s
+}
+
+func (this Integer) String() string {
+	return fmt.Sprint(int32(this))
+}
+
+// Long
+type Long int64
+
+func NewLong(val Long) *Long {
+	return &val
+}
+
+func (this Long) HashCode() int {
 	return tk.HashLong(tk.HASH_SEED, int64(this))
 }
 
-func (this Int64) Equals(other interface{}) bool {
-	s, _ := other.(Int64)
+func (this Long) Equals(other interface{}) bool {
+	s, _ := other.(Long)
 	return this == s
+}
+
+func (this Long) String() string {
+	return fmt.Sprint(int64(this))
 }
 
 // Float
+type Float float32
 
-type Float64 float64
-
-func NewFloat64(val Float64) *Float64 {
+func NewFloat(val Float) *Float {
 	return &val
 }
 
-func (this Float64) HashCode() int {
+func (this Float) HashCode() int {
+	return tk.HashFloat(tk.HASH_SEED, float32(this))
+}
+
+func (this Float) Equals(other interface{}) bool {
+	s, _ := other.(Float)
+	return this == s
+}
+
+func (this Float) String() string {
+	return fmt.Sprint(float32(this))
+}
+
+// Double
+type Double float64
+
+func NewDouble(val Double) *Double {
+	return &val
+}
+
+func (this Double) HashCode() int {
 	return tk.HashDouble(tk.HASH_SEED, float64(this))
 }
 
-func (this Float64) Equals(other interface{}) bool {
-	s, _ := other.(Float64)
+func (this Double) Equals(other interface{}) bool {
+	s, _ := other.(Double)
 	return this == s
+}
+
+func (this Double) String() string {
+	return fmt.Sprint(float64(this))
 }
 
 // BOOL
+type Boolean bool
 
-type Bool bool
-
-func NewBool(val Bool) *Bool {
+func NewBool(val Boolean) *Boolean {
 	return &val
 }
 
-func (this Bool) HashCode() int {
+func (this Boolean) HashCode() int {
 	return tk.HashBool(tk.HASH_SEED, bool(this))
 }
 
-func (this Bool) Equals(other interface{}) bool {
-	s, _ := other.(Bool)
+func (this Boolean) Equals(other interface{}) bool {
+	s, _ := other.(Boolean)
 	return this == s
+}
+
+func (this Boolean) String() string {
+	return fmt.Sprint(bool(this))
 }
 
 // Date

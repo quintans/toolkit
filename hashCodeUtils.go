@@ -3,7 +3,7 @@ package toolkit
 import (
 	"bytes"
 	"encoding/binary"
-	r "reflect"
+	"reflect"
 )
 
 /**
@@ -45,8 +45,28 @@ func HashInt(aSeed int, aInt int) int {
 	return firstTerm(aSeed) + aInt
 }
 
+func HashUnit(aSeed int, aInt byte) int {
+	return firstTerm(aSeed) + numberHashCode(aInt)
+}
+
+func HashTiny(aSeed int, aInt int8) int {
+	return firstTerm(aSeed) + numberHashCode(aInt)
+}
+
+func HashShort(aSeed int, aInt int16) int {
+	return firstTerm(aSeed) + numberHashCode(aInt)
+}
+
+func HashInteger(aSeed int, aInt int32) int {
+	return firstTerm(aSeed) + numberHashCode(aInt)
+}
+
 func HashLong(aSeed int, aLong int64) int {
 	return firstTerm(aSeed) + numberHashCode(aLong)
+}
+
+func HashFloat(aSeed int, aFloat float32) int {
+	return firstTerm(aSeed) + numberHashCode(aFloat)
 }
 
 func HashDouble(aSeed int, aDouble float64) int {
@@ -66,8 +86,8 @@ func HashBase(aSeed int, a Base) int {
 }
 
 func HashType(aSeed int, aType interface{}) int {
-	typ := r.TypeOf(aType)
-	if typ.Kind() == r.Ptr {
+	typ := reflect.TypeOf(aType)
+	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
 
@@ -82,26 +102,42 @@ func HashType(aSeed int, aType interface{}) int {
 }
 
 func Hash(aSeed int, aObject interface{}) int {
-	result := aSeed
+	result := hash(aSeed, aObject)
+	if result == 0 {
+		result = aSeed
+	}
+	return result
+}
+
+func hash(aSeed int, aObject interface{}) int {
+	result := 0
 	if aObject == nil {
-		result = HashInt(result, 0)
+		result = HashInt(aSeed, 0)
+	} else if t, ok := aObject.(Hasher); ok {
+		result = HashInt(aSeed, t.HashCode())
 	} else {
-		valuesVal := r.ValueOf(aObject)
-		k := valuesVal.Kind()
-		if k == r.Array || k == r.Slice {
-			length := valuesVal.Len()
+		v := reflect.ValueOf(aObject)
+		k := v.Kind()
+		if k == reflect.Array || k == reflect.Slice {
+			length := v.Len()
 			for i := 1; i < length; i++ {
-				item := valuesVal.Index(i).Interface()
-				result = Hash(result, item)
+				item := v.Index(i).Interface()
+				result = Hash(aSeed, item)
 			}
-		} else if k == r.Bool {
-			result = HashBool(result, aObject.(bool))
-		} else if k >= r.Int && k <= r.Complex128 {
-			result = HashInt(result, numberHashCode(aObject))
-		} else if k == r.String {
-			result = HashString(result, aObject.(string))
-		} else if t, ok := aObject.(Base); ok {
-			result = HashInt(result, t.HashCode())
+		} else if k == reflect.Bool {
+			result = HashBool(aSeed, aObject.(bool))
+		} else if k >= reflect.Int && k <= reflect.Complex128 {
+			result = HashInt(aSeed, numberHashCode(aObject))
+		} else if k == reflect.String {
+			result = HashString(aSeed, aObject.(string))
+		} else if k == reflect.Ptr {
+			// tries pointer element
+			o := v.Elem().Interface()
+			r := hash(aSeed, o)
+			if r == 0 {
+				// no luck with the pointer. lets use pointer address value
+				r = HashInt(aSeed, int(v.Pointer()))
+			}
 		}
 	}
 	return result

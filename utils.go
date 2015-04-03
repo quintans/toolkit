@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func Match(o1 interface{}, o2 interface{}) bool {
+func Match(o1, o2 interface{}) bool {
 	switch t := o1.(type) { //type switch
 	case Equaler:
 		return t.Equals(o2)

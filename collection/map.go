@@ -19,7 +19,14 @@ func (this *KeyValue) Equals(e interface{}) bool {
 }
 
 func (this *KeyValue) String() string {
-	return fmt.Sprintf("{%v, %v}", this.Key, this.Value)
+	return fmt.Sprintf("{%s, %s}", this.Key, this.Value)
+}
+
+func (this *KeyValue) HashCode() int {
+	result := HashType(HASH_SEED, this)
+	result = HashInt(result, this.Key.HashCode())
+	result = Hash(result, this.Value)
+	return result
 }
 
 // == HashMap ==

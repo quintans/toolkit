@@ -103,9 +103,20 @@ func (this *HashSet) Delete(value interface{}) bool {
 }
 
 func (this *HashSet) Sort(greater func(a, b interface{}) bool) []interface{} {
-	tmp := this.Elements()
+	tmp := make([]interface{}, this.entries.Size())
+	i := 0
+	for it := this.entries.Iterator(); it.HasNext(); i++ {
+		tmp[i] = it.Next().Key
+	}
+
 	Sort(tmp, greater)
-	return tmp
+
+	elems := make([]interface{}, len(tmp))
+	for k, v := range tmp {
+		elems[k] = v.(interface{})
+	}
+
+	return elems
 }
 
 func (this *HashSet) Elements() []interface{} {

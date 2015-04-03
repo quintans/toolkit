@@ -15,7 +15,7 @@ type Collection interface {
 
 	Enumerator() Enumerator
 	Elements() []interface{}
-	AsSlice() interface{}
+	AsSlice() interface{} // returns elements in an array. ex: []int
 	Sort(greater func(a, b interface{}) bool) []interface{}
 }
 
@@ -26,6 +26,13 @@ type IList interface {
 	Set(pos int, value interface{})
 	Find(value interface{}) (int, interface{})
 	DeleteAt(pos int) bool
+}
+
+type Enumerator interface {
+	HasNext() bool
+	Next() interface{}
+	Peek() interface{}
+	Remove()
 }
 
 type Map interface {
@@ -47,12 +54,5 @@ type Iterator interface {
 	HasNext() bool
 	Next() *KeyValue
 	Peek() *KeyValue
-	Remove()
-}
-
-type Enumerator interface {
-	HasNext() bool
-	Next() interface{}
-	Peek() interface{}
 	Remove()
 }

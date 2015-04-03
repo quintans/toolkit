@@ -23,19 +23,43 @@ func IsEmpty(test *string) bool {
 
 // Pointers
 
-func BoolPtr(val bool) *bool {
+func Bool(val bool) *bool {
 	return &val
 }
 
-func StrPtr(val string) *string {
+func String(val string) *string {
 	return &val
 }
 
-func Int64Ptr(val int64) *int64 {
+func Byte(val byte) *byte {
 	return &val
 }
 
-func Float64Ptr(val float64) *float64 {
+func Int(val int) *int {
+	return &val
+}
+
+func Int8(val int8) *int8 {
+	return &val
+}
+
+func Int16(val int16) *int16 {
+	return &val
+}
+
+func Int32(val int32) *int32 {
+	return &val
+}
+
+func Int64(val int64) *int64 {
+	return &val
+}
+
+func Float32(val float32) *float32 {
+	return &val
+}
+
+func Float64(val float64) *float64 {
 	return &val
 }
 
@@ -95,7 +119,7 @@ func CloneBool(test *bool) *bool {
 	if test == nil {
 		return nil
 	} else {
-		return BoolPtr(*test)
+		return Bool(*test)
 	}
 }
 
@@ -103,7 +127,7 @@ func CloneStr(test *string) *string {
 	if test == nil {
 		return nil
 	} else {
-		return StrPtr(*test)
+		return String(*test)
 	}
 }
 
@@ -111,7 +135,7 @@ func CloneInt64(test *int64) *int64 {
 	if test == nil {
 		return nil
 	} else {
-		return Int64Ptr(*test)
+		return Int64(*test)
 	}
 }
 
@@ -119,7 +143,7 @@ func CloneFloat64(test *float64) *float64 {
 	if test == nil {
 		return nil
 	} else {
-		return Float64Ptr(*test)
+		return Float64(*test)
 	}
 }
 

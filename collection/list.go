@@ -13,9 +13,6 @@ type ArrayList struct {
 // check if it implements IList interface
 var _ IList = &ArrayList{}
 
-// check if it implements Collection interface
-var _ Collection = &ArrayList{}
-
 // check if it implements Base interface
 var _ Base = &ArrayList{}
 

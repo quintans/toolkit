@@ -2,15 +2,18 @@ package collections
 
 import (
 	"testing"
+
+	. "github.com/quintans/toolkit"
+	. "github.com/quintans/toolkit/ext"
 )
 
-func compare(a, b []Hasher) bool {
+func compare(a, b []interface{}) bool {
 	if len(a) != len(b) {
 		return false
 	}
 
 	for k, v := range a {
-		if !v.Equals(b[k]) {
+		if !Match(v, b[k]) {
 			return false
 		}
 	}
@@ -22,14 +25,14 @@ func greater(a, b interface{}) bool {
 	return a.(Long) > b.(Long)
 }
 
-var unsortedArray []Hasher = []Hasher{
+var unsortedArray []interface{} = []interface{}{
 	Long(10),
 	Long(2),
 	Long(6),
 	Long(71),
 	Long(3),
 }
-var sortedArray []Hasher = []Hasher{
+var sortedArray []interface{} = []interface{}{
 	Long(2),
 	Long(3),
 	Long(6),
@@ -86,7 +89,7 @@ func TestEnumerator(t *testing.T) {
 
 	pos := 0
 	for e := list.Enumerator(); e.HasNext(); {
-		if !unsortedArray[pos].Equals(e.Next()) {
+		if !Match(unsortedArray[pos], e.Next()) {
 			t.Error("The enumeration did not return the same elements")
 		}
 		pos++
