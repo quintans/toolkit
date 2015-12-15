@@ -53,7 +53,7 @@ func Save(DB db.IDb, table *db.Table, entity IEntity) error {
 	logger.CallerAt(1).Debugf("DAOUtils.Save: %s", entity)
 
 	if entity.GetVersion() == nil {
-		entity.SetVersion(Int64Ptr(1))
+		entity.SetVersion(Int64(1))
 		//entity.SetCreation(NOW()) -> PreInsert
 		id, err := DB.Insert(table).Submit(entity)
 		if err != nil {
@@ -274,7 +274,7 @@ func QueryForPage(
 		if err != nil {
 			return Page{}, err
 		}
-		page.Count = Int64Ptr(recs)
+		page.Count = Int64(recs)
 	}
 
 	return page, nil

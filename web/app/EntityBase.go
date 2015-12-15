@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/quintans/goSQL/db"
 	. "github.com/quintans/toolkit/ext"
 )
 
@@ -12,6 +13,8 @@ type IEntity interface {
 }
 
 type EntityBase struct {
+	db.Marker
+
 	Id      *int64 `json:"id"`
 	Version *int64 `json:"version"`
 }
@@ -22,6 +25,7 @@ func (this *EntityBase) GetId() *int64 {
 
 func (this *EntityBase) SetId(id *int64) {
 	this.Id = id
+	this.Mark("Id")
 }
 
 func (this *EntityBase) GetVersion() *int64 {
@@ -30,6 +34,7 @@ func (this *EntityBase) GetVersion() *int64 {
 
 func (this *EntityBase) SetVersion(version *int64) {
 	this.Version = version
+	this.Mark("Version")
 }
 
 func (this *EntityBase) Copy(entity EntityBase) {
