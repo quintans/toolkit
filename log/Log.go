@@ -36,7 +36,7 @@ var (
 func init() {
 	logMaster.workers = list.New()
 	// root logger
-	Register("/", DEBUG, NewNullAppender())
+	Register("/", DEBUG, NewConsoleAppender(false))
 	SetTimeFormat("%Y/%02M/%02D %02h:%02m:%02s.%03x")
 }
 
@@ -63,7 +63,7 @@ func normalizeNamespace(namespace string) string {
 func Register(namespace string, level LogLevel, writers ...LogWriter) {
 	namespace = normalizeNamespace(namespace)
 
-	// if there is no supplied writers use the ones from the parent
+	// if there are no supplied writers use the ones from the parent
 	worker := &Worker{Prefix: namespace, Level: level, Writers: writers}
 	if writers == nil {
 		wrk := logMaster.fetchWorker(namespace)
