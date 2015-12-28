@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	tk "github.com/quintans/toolkit"
+	"github.com/quintans/toolkit/log"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 )
 
 var ErrShortRead = errors.New("short read")
+var fifoLogger = log.LoggerFor("github.com/quintans/toolkit/collection")
 
 // FileFifo stores some data in memory and after a threshold
 // the data is written to disk.
@@ -79,10 +81,13 @@ func (this *FileFifo) Clear() error {
 	}
 
 	// (re)create dir
+	fifoLogger.Debugf("removing dir %s", this.dir)
 	err := os.RemoveAll(this.dir)
 	if err != nil {
 		return err
 	}
+
+	fifoLogger.Debugf("creating dir %s", this.dir)
 	err = os.MkdirAll(this.dir, 0777)
 	if err != nil {
 		return err
@@ -110,7 +115,8 @@ func (this *FileFifo) nextHeadFile() error {
 		}
 	}
 	this.headFileIdx++
-	fp := filepath.Join(this.dir, fmt.Sprintf("%016X.dat", this.headFileIdx))
+	fp := filepath.Join(this.dir, fmt.Sprintf("%016X", this.headFileIdx))
+	fifoLogger.Debugf("creating file %s", fp)
 	this.headFile, err = os.Create(fp)
 	if err != nil {
 		return err
@@ -126,6 +132,7 @@ func (this *FileFifo) nextTailFile() error {
 		if err != nil {
 			return err
 		}
+		fifoLogger.Debugf("removing file %s", this.tailFile.Name())
 		err = os.Remove(this.tailFile.Name())
 		if err != nil {
 			return err
@@ -133,6 +140,7 @@ func (this *FileFifo) nextTailFile() error {
 	}
 	this.tailFileIdx++
 	fp := filepath.Join(this.dir, fmt.Sprintf("%016X", this.tailFileIdx))
+	fifoLogger.Debugf("opening file %s", fp)
 	this.tailFile, err = os.Open(fp)
 	if err != nil {
 		return err
@@ -148,11 +156,11 @@ func (this *FileFifo) Push(data []byte) error {
 	// write data size
 	var buf32 = make([]byte, intByteSize)
 	size := len(data)
-	binary.LittleEndian.PutUint32(buf32, uint32(size))
+	binary.BigEndian.PutUint32(buf32, uint32(size))
 	n, err := this.headFile.Write(buf32)
 	if err != nil {
 		return err
-	} else if n < size {
+	} else if n < intByteSize {
 		return io.ErrShortWrite
 	}
 
@@ -172,6 +180,7 @@ func (this *FileFifo) Push(data []byte) error {
 func (this *FileFifo) Pop() ([]byte, error) {
 	data, err := this.Peek()
 	this.peekedData = nil
+	this.tailIdx++
 	return data, err
 }
 
@@ -190,17 +199,16 @@ func (this *FileFifo) Peek() ([]byte, error) {
 		} else if n < intByteSize {
 			return nil, ErrShortRead
 		}
-		size := int(binary.LittleEndian.Uint32(buf))
+		size := int(binary.BigEndian.Uint32(buf))
 		// read data
 		buf = make([]byte, size)
 		n, err = this.tailFile.Read(buf)
 		if err != nil {
 			return nil, err
-		} else if n < intByteSize {
+		} else if n < size {
 			return nil, ErrShortRead
 		}
 
-		this.tailIdx++
 		this.peekedData = buf
 		return buf, nil
 
