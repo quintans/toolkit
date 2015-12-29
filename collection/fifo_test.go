@@ -2,9 +2,9 @@ package collections
 
 import (
 	"testing"
+	"time"
 
 	tk "github.com/quintans/toolkit"
-	"github.com/quintans/toolkit/ext"
 )
 
 const (
@@ -113,6 +113,17 @@ func TestFilePushPop3(t *testing.T) {
 		if fifo.Size() != int64(0) {
 			t.Fatalf("Wrong fifo size after full pop. Expected 0 got %v.\n", fifo.Size())
 		}
+
+		data, err = fifo.Pop()
+		if err != nil {
+			t.Fatal(err)
+		} else if data != nil {
+			t.Errorf("Wrong Pop data. Expected nil got %s\n", string(data))
+		}
+		if fifo.Size() != int64(0) {
+			t.Fatalf("Wrong fifo size after full pop + 1. Expected 0 got %v.\n", fifo.Size())
+		}
+
 		err = fifo.Clear()
 		if err != nil {
 			t.Fatal(err)
@@ -123,11 +134,12 @@ func TestFilePushPop3(t *testing.T) {
 	}
 }
 
-func TestBigPushPop3(t *testing.T) {
-	fifo, err := NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, func() interface{} { return ext.String("") })
+// TestBigPushPop1 will make some data be stored in memory and other be stored in file
+func TestBigPushPop1(t *testing.T) {
+	fifo, err := NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
 	if err == nil {
 		for _, m := range messages {
-			err = fifo.Push([]byte(m))
+			err = fifo.Push(m)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -136,8 +148,8 @@ func TestBigPushPop3(t *testing.T) {
 			t.Fatalf("Wrong fifo size. Expected %v got %v.\n", fifo.Size(), len(messages))
 		}
 
-		data, err := fifo.Peek()
-		if messages[0] != string(data) {
+		data := fifo.Peek()
+		if messages[0] != data.(string) {
 			t.Fatalf("Peeked data does not match! Failed comparing %s\n", messages[0])
 		}
 		if fifo.Size() != int64(len(messages)) {
@@ -149,7 +161,7 @@ func TestBigPushPop3(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			} else {
-				if m != string(data) {
+				if m != data.(string) {
 					t.Errorf("Pop data does not match! Failed comparing %s\n", m)
 					return
 				}
@@ -168,4 +180,27 @@ func TestBigPushPop3(t *testing.T) {
 	}
 }
 
-// TODO test concurrent access
+func TestBigPushPop2(t *testing.T) {
+	fifo, err := NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
+	if err == nil {
+		msg := "hello"
+		go func() {
+			time.Sleep(time.Second)
+			err := fifo.Push(msg)
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+
+		data, err := fifo.PopOrWait()
+		if err != nil {
+			t.Error(err)
+		}
+		if msg != data.(string) {
+			t.Fatalf("Wrong data. Expected %s got %s.\n", msg, data.(string))
+		}
+
+	} else {
+		t.Fatal(err)
+	}
+}

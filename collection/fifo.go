@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 
 	tk "github.com/quintans/toolkit"
@@ -20,6 +21,7 @@ const (
 )
 
 var ErrShortRead = errors.New("short read")
+var ErrNilData = errors.New("nil data")
 var fifoLogger = log.LoggerFor("github.com/quintans/toolkit/collection")
 
 // FileFifo stores some data in memory and after a threshold
@@ -149,7 +151,11 @@ func (this *FileFifo) nextTailFile() error {
 }
 
 func (this *FileFifo) Push(data []byte) error {
-	if this.headFile == nil || this.headFileSize > this.fileCap {
+	if data == nil {
+		return ErrNilData
+	}
+
+	if this.headFileSize > this.fileCap {
 		this.nextHeadFile()
 	}
 
@@ -165,11 +171,13 @@ func (this *FileFifo) Push(data []byte) error {
 	}
 
 	// write data
-	n, err = this.headFile.Write(data)
-	if err != nil {
-		return err
-	} else if n < size {
-		return io.ErrShortWrite
+	if size > 0 {
+		n, err = this.headFile.Write(data)
+		if err != nil {
+			return err
+		} else if n < size {
+			return io.ErrShortWrite
+		}
 	}
 
 	this.headFileSize += int64(intByteSize + size)
@@ -180,7 +188,9 @@ func (this *FileFifo) Push(data []byte) error {
 func (this *FileFifo) Pop() ([]byte, error) {
 	data, err := this.Peek()
 	this.peekedData = nil
-	this.tailIdx++
+	if data != nil {
+		this.tailIdx++
+	}
 	return data, err
 }
 
@@ -202,11 +212,13 @@ func (this *FileFifo) Peek() ([]byte, error) {
 		size := int(binary.BigEndian.Uint32(buf))
 		// read data
 		buf = make([]byte, size)
-		n, err = this.tailFile.Read(buf)
-		if err != nil {
-			return nil, err
-		} else if n < size {
-			return nil, ErrShortRead
+		if size > 0 {
+			n, err = this.tailFile.Read(buf)
+			if err != nil {
+				return nil, err
+			} else if n < size {
+				return nil, ErrShortRead
+			}
 		}
 
 		this.peekedData = buf
@@ -236,7 +248,7 @@ type BigFifo struct {
 	threshold int
 	dir       string
 	codec     tk.Codec
-	factory   func() interface{}
+	dataType  reflect.Type
 }
 
 // NewBigFifo creates a FIFO that after a certain number of elements will use disk files to store the elements.
@@ -246,7 +258,7 @@ type BigFifo struct {
 // codec: codec to convert between []byte and interface{}
 //
 // BigFifo is not safe for concurrent access.
-func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, factory func() interface{}) (*BigFifo, error) {
+func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, zero interface{}) (*BigFifo, error) {
 	// validate
 	if threshold < 1 {
 		return nil, errors.New("validate is less than 1")
@@ -257,8 +269,8 @@ func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, factor
 	if codec == nil {
 		return nil, errors.New("codec is nil")
 	}
-	if factory == nil {
-		return nil, errors.New("factory is nil")
+	if zero == nil {
+		return nil, errors.New("zero is nil")
 	}
 
 	var err error
@@ -269,7 +281,15 @@ func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, factor
 	}
 	this.threshold = threshold
 	this.codec = codec
-	this.factory = factory
+
+	t := reflect.TypeOf(zero)
+	// if pointer user non pointer type
+	if t.Kind() == reflect.Ptr {
+		this.dataType = t.Elem()
+	} else {
+		this.dataType = t
+	}
+
 	this.cond = sync.NewCond(&sync.Mutex{})
 	return this, nil
 }
@@ -340,12 +360,15 @@ func (this *BigFifo) pop() (interface{}, error) {
 	}
 
 	if data != nil {
-		v := this.factory()
-		err = this.codec.Decode(data, v)
+		// copy
+		v := reflect.New(this.dataType)
+		// decode
+		err = this.codec.Decode(data, v.Interface())
 		if err != nil {
 			return nil, err
 		}
-		this.push(v)
+		// push to memory
+		this.push(v.Elem().Interface())
 	}
 
 	return value, nil
