@@ -1,9 +1,10 @@
-package collections
+package test
 
 import (
 	"testing"
 
 	. "github.com/quintans/toolkit"
+	"github.com/quintans/toolkit/collection"
 	. "github.com/quintans/toolkit/ext"
 )
 
@@ -25,14 +26,14 @@ func greater(a, b interface{}) bool {
 	return a.(Long) > b.(Long)
 }
 
-var unsortedArray []interface{} = []interface{}{
+var unsortedArray = []interface{}{
 	Long(10),
 	Long(2),
 	Long(6),
 	Long(71),
 	Long(3),
 }
-var sortedArray []interface{} = []interface{}{
+var sortedArray = []interface{}{
 	Long(2),
 	Long(3),
 	Long(6),
@@ -41,7 +42,7 @@ var sortedArray []interface{} = []interface{}{
 }
 
 func TestSort(t *testing.T) {
-	list := NewArrayList()
+	list := collections.NewArrayList()
 	list.Add(unsortedArray...)
 
 	ordered := list.Sort(greater)
@@ -54,7 +55,7 @@ func TestSort(t *testing.T) {
 }
 
 func TestAddAll(t *testing.T) {
-	list := NewArrayList()
+	list := collections.NewArrayList()
 	list.Add(unsortedArray...)
 	if !compare(list.Elements(), unsortedArray) {
 		t.Error("Expected [12, 2, 30], got ", list.Elements())
@@ -62,7 +63,7 @@ func TestAddAll(t *testing.T) {
 }
 
 func TestFind(t *testing.T) {
-	list := NewArrayList()
+	list := collections.NewArrayList()
 	list.Add(unsortedArray...)
 
 	i, _ := list.Find(Long(2))
@@ -72,7 +73,7 @@ func TestFind(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	list := NewArrayList()
+	list := collections.NewArrayList()
 	list.Add(unsortedArray...)
 
 	if list.Contains(Long(25)) {
@@ -84,7 +85,7 @@ func TestContains(t *testing.T) {
 }
 
 func TestEnumerator(t *testing.T) {
-	list := NewArrayList()
+	list := collections.NewArrayList()
 	list.Add(unsortedArray...)
 
 	pos := 0

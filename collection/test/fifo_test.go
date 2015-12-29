@@ -1,10 +1,11 @@
-package collections
+package test
 
 import (
 	"testing"
 	"time"
 
 	tk "github.com/quintans/toolkit"
+	"github.com/quintans/toolkit/collection"
 )
 
 const (
@@ -22,7 +23,7 @@ func TestFilePushPop1(t *testing.T) {
 	for i := 0; i < size; i++ {
 		mega[i] = zero
 	}
-	fifo, err := NewFileFifo(fifoDir, 1)
+	fifo, err := collections.NewFileFifo(fifoDir, 1)
 	if err == nil {
 		for i := 0; i < 3; i++ {
 			err = fifo.Push(mega)
@@ -36,10 +37,14 @@ func TestFilePushPop1(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			} else {
-				for i, v := range mega {
-					if v != data[i] {
-						t.Errorf("Retrived data does not match!")
-						return
+				if len(mega) != len(data) {
+					t.Errorf("Retrived data size does not match! i: %v, data: %v", i, len(data))
+				} else {
+					for i, v := range mega {
+						if v != data[i] {
+							t.Errorf("Retrived data does not match!")
+							return
+						}
 					}
 				}
 			}
@@ -51,7 +56,7 @@ func TestFilePushPop1(t *testing.T) {
 }
 
 func TestFilePushPop2(t *testing.T) {
-	fifo, err := NewFileFifo(fifoDir, 1)
+	fifo, err := collections.NewFileFifo(fifoDir, 1)
 	if err == nil {
 		for i := 0; i < 100000; i++ {
 			for _, m := range messages {
@@ -79,7 +84,7 @@ func TestFilePushPop2(t *testing.T) {
 }
 
 func TestFilePushPop3(t *testing.T) {
-	fifo, err := NewFileFifo(fifoDir, 1)
+	fifo, err := collections.NewFileFifo(fifoDir, 1)
 	if err == nil {
 		for _, m := range messages {
 			err = fifo.Push([]byte(m))
@@ -136,7 +141,7 @@ func TestFilePushPop3(t *testing.T) {
 
 // TestBigPushPop1 will make some data be stored in memory and other be stored in file
 func TestBigPushPop1(t *testing.T) {
-	fifo, err := NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
+	fifo, err := collections.NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
 	if err == nil {
 		for _, m := range messages {
 			err = fifo.Push(m)
@@ -181,7 +186,7 @@ func TestBigPushPop1(t *testing.T) {
 }
 
 func TestBigPushPop2(t *testing.T) {
-	fifo, err := NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
+	fifo, err := collections.NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
 	if err == nil {
 		msg := "hello"
 		go func() {

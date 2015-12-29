@@ -2,7 +2,10 @@ package collections
 
 import (
 	. "github.com/quintans/toolkit"
+	"github.com/quintans/toolkit/log"
 )
+
+var logger = log.LoggerFor("github.com/quintans/toolkit/collection")
 
 type Collection interface {
 	Base

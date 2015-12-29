@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	tk "github.com/quintans/toolkit"
-	"github.com/quintans/toolkit/log"
 )
 
 const (
@@ -22,7 +21,6 @@ const (
 
 var ErrShortRead = errors.New("short read")
 var ErrNilData = errors.New("nil data")
-var fifoLogger = log.LoggerFor("github.com/quintans/toolkit/collection")
 
 // FileFifo stores some data in memory and after a threshold
 // the data is written to disk.
@@ -83,13 +81,13 @@ func (this *FileFifo) Clear() error {
 	}
 
 	// (re)create dir
-	fifoLogger.Debugf("removing dir %s", this.dir)
+	logger.Debugf("removing dir %s", this.dir)
 	err := os.RemoveAll(this.dir)
 	if err != nil {
 		return err
 	}
 
-	fifoLogger.Debugf("creating dir %s", this.dir)
+	logger.Debugf("creating dir %s", this.dir)
 	err = os.MkdirAll(this.dir, 0777)
 	if err != nil {
 		return err
@@ -118,7 +116,7 @@ func (this *FileFifo) nextHeadFile() error {
 	}
 	this.headFileIdx++
 	fp := filepath.Join(this.dir, fmt.Sprintf("%016X", this.headFileIdx))
-	fifoLogger.Debugf("creating file %s", fp)
+	logger.Debugf("creating file %s", fp)
 	this.headFile, err = os.Create(fp)
 	if err != nil {
 		return err
@@ -134,7 +132,7 @@ func (this *FileFifo) nextTailFile() error {
 		if err != nil {
 			return err
 		}
-		fifoLogger.Debugf("removing file %s", this.tailFile.Name())
+		logger.Debugf("removing file %s", this.tailFile.Name())
 		err = os.Remove(this.tailFile.Name())
 		if err != nil {
 			return err
@@ -142,7 +140,7 @@ func (this *FileFifo) nextTailFile() error {
 	}
 	this.tailFileIdx++
 	fp := filepath.Join(this.dir, fmt.Sprintf("%016X", this.tailFileIdx))
-	fifoLogger.Debugf("opening file %s", fp)
+	logger.Debugf("opening file %s", fp)
 	this.tailFile, err = os.Open(fp)
 	if err != nil {
 		return err
@@ -203,13 +201,14 @@ func (this *FileFifo) Peek() ([]byte, error) {
 		n, err := this.tailFile.Read(buf)
 		if err == io.EOF {
 			this.nextTailFile()
-			return this.Pop()
+			return this.Peek()
 		} else if err != nil {
 			return nil, err
 		} else if n < intByteSize {
 			return nil, ErrShortRead
 		}
 		size := int(binary.BigEndian.Uint32(buf))
+
 		// read data
 		buf = make([]byte, size)
 		if size > 0 {

@@ -1,9 +1,11 @@
-package collections
+package test
 
 import (
 	"fmt"
-	. "github.com/quintans/toolkit/ext"
 	"testing"
+
+	. "github.com/quintans/toolkit/collection"
+	. "github.com/quintans/toolkit/ext"
 )
 
 const value1 = "World"
@@ -53,7 +55,7 @@ func TestResize(t *testing.T) {
 	}
 }
 
-var dics []KeyValue = []KeyValue{
+var dics = []KeyValue{
 	KeyValue{Str("Martim"), 9},
 	KeyValue{Str("Paulo"), 41},
 	KeyValue{Str("Monica"), 33},
