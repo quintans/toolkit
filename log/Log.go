@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/quintans/toolkit/faults"
 )
 
 type Worker struct {
@@ -95,6 +97,10 @@ func Register(namespace string, level LogLevel, writers ...LogWriter) {
 	if !processed {
 		logMaster.workers.PushBack(worker)
 	}
+}
+
+func RootLogger() *Logger {
+	return LoggerFor("/")
 }
 
 func LoggerFor(namespace string) *Logger {
@@ -321,7 +327,7 @@ func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 	if this.IsActive(level) {
 		str := this.logStamp(level)
 		if len(what) > 0 {
-			str += fmt.Sprintf(format+"\n", what...)
+			str += fmt.Sprintf(format+"\n", convert(what)...)
 		} else {
 			str += format + "\n"
 		}
@@ -329,10 +335,12 @@ func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 	}
 }
 
-func (this *Logger) logF(level LogLevel, handler func() string) {
+func (this *Logger) log(level LogLevel, a ...interface{}) {
 	if this.IsActive(level) {
-		str := this.logStamp(level) + handler() + "\n"
-		flush(level, str, this.worker.Writers)
+		var arr = []interface{}{this.logStamp(level)}
+		arr = append(arr, convert(a)...)
+		arr = append(arr, "\n")
+		flush(level, fmt.Sprint(arr...), this.worker.Writers)
 	}
 }
 
@@ -351,38 +359,50 @@ func (this *Logger) Debugf(format string, what ...interface{}) {
 	this.logf(DEBUG, format, what...)
 }
 
-func (this *Logger) DebugF(handler func() string) {
-	this.logF(DEBUG, handler)
-}
-
 func (this *Logger) Infof(format string, what ...interface{}) {
 	this.logf(INFO, format, what...)
-}
-
-func (this *Logger) InfoF(handler func() string) {
-	this.logF(INFO, handler)
 }
 
 func (this *Logger) Warnf(format string, what ...interface{}) {
 	this.logf(WARN, format, what...)
 }
 
-func (this *Logger) WarnF(handler func() string) {
-	this.logF(WARN, handler)
-}
-
 func (this *Logger) Errorf(format string, what ...interface{}) {
 	this.logf(ERROR, format, what...)
-}
-
-func (this *Logger) ErrorF(handler func() string) {
-	this.logF(ERROR, handler)
 }
 
 func (this *Logger) Fatalf(format string, what ...interface{}) {
 	this.logf(FATAL, format, what...)
 }
 
-func (this *Logger) FatalF(handler func() string) {
-	this.logF(FATAL, handler)
+func (this *Logger) Debug(a ...interface{}) {
+	this.log(DEBUG, a...)
+}
+
+func (this *Logger) Info(a ...interface{}) {
+	this.log(INFO, a...)
+}
+
+func (this *Logger) Warn(a ...interface{}) {
+	this.log(WARN, a...)
+}
+
+func (this *Logger) Error(a ...interface{}) {
+	this.log(ERROR, a...)
+}
+
+func (this *Logger) Fatal(a ...interface{}) {
+	this.log(FATAL, a...)
+}
+
+func convert(what []interface{}) []interface{} {
+	for k, v := range what {
+		switch t := v.(type) {
+		case *faults.Error:
+			what[k] = t.StackTrace()
+		case func() string:
+			what[k] = t()
+		}
+	}
+	return what
 }

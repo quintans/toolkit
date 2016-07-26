@@ -22,8 +22,7 @@ const (
 var ErrShortRead = errors.New("short read")
 var ErrNilData = errors.New("nil data")
 
-// FileFifo stores some data in memory and after a threshold
-// the data is written to disk.
+// FileFifo stores stores all data to disk.
 type FileFifo struct {
 	dir     string
 	fileCap int64
@@ -336,7 +335,7 @@ func (this *BigFifo) Push(value interface{}) error {
 		// still in the memory zone
 		this.push(value)
 	} else {
-		// use disk, since the threshold was exceeded.
+		// use disk, since the threshold was reached.
 		data, err := this.codec.Encode(value)
 		if err != nil {
 			return err
