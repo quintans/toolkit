@@ -22,6 +22,7 @@ func create(a interface{}, args ...interface{}) *Error {
 	case *Error:
 		cause = e
 	case error:
+		msg = e.Error()
 		cause = e
 	case string:
 		if len(args) > 0 {
