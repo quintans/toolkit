@@ -2,8 +2,9 @@ package collections
 
 import (
 	"fmt"
-	. "github.com/quintans/toolkit"
 	"reflect"
+
+	. "github.com/quintans/toolkit"
 )
 
 type ArrayList struct {
@@ -168,7 +169,11 @@ func (this *ArrayList) Delete(value interface{}) bool {
 
 func (this *ArrayList) DeleteAt(pos int) bool {
 	if pos >= 0 && pos < this.Size() {
-		this.elements = append(this.elements[:pos], this.elements[pos+1:]...)
+		// since the slice has a non-primitive, we have to zero it
+		copy(this.elements[pos:], this.elements[pos+1:])
+		this.elements[len(this.elements)-1] = nil // zero it
+		this.elements = this.elements[:len(this.elements)-1]
+
 		return true
 	}
 	return false

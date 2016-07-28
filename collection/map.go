@@ -2,6 +2,7 @@ package collections
 
 import (
 	"fmt"
+
 	. "github.com/quintans/toolkit"
 )
 
@@ -404,7 +405,11 @@ func (this *LinkedHashMap) Put(key Hasher, value interface{}) interface{} {
 func (this *LinkedHashMap) Delete(key Hasher) interface{} {
 	if e, ok := this.entries.Get(key); ok {
 		if T, isT := e.(entry); isT {
-			this.keyOrder = append(this.keyOrder[:T.index], this.keyOrder[T.index+1:]...)
+			// since the slice has a non-primitive, we have to zero it
+			copy(this.keyOrder[T.index:], this.keyOrder[T.index+1:])
+			this.keyOrder[len(this.keyOrder)-1] = nil // zero it
+			this.keyOrder = this.keyOrder[:len(this.keyOrder)-1]
+
 			this.entries.Delete(key)
 			return T.value
 		}
