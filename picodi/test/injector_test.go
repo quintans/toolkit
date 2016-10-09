@@ -19,11 +19,12 @@ func (foo Foo) Name() string {
 }
 
 type Bar struct {
-	Foo   Foo   `wire:"foo"`
+	Foo    Foo   `wire:"foo"`
 	Foo2   Foo   `wire:""`
-	Other Namer `wire:"foo"`
-	inner Foo   `wire:"foo"`
-	Fun   Foo   `wire:"foofn"`
+	Other  Namer `wire:"foo"`
+	inner  Foo   `wire:"foo"`
+	Fun    Foo   `wire:"foofn"`
+	FooPtr *Foo  `wire:"fooptr"`
 }
 
 func (b *Bar) SetInner(v Foo) {
@@ -32,9 +33,12 @@ func (b *Bar) SetInner(v Foo) {
 
 func TestStructWire(t *testing.T) {
 	var pico = picodi.New()
-	pico.Set("foo", Foo{"Foo"})
-	pico.Set("Foo", Foo{"Foo"}) // unnamed wire
-	pico.Set("foofn", func() Foo { return Foo{"FooFn"} })
+	pico.SetValue("fooptr", &Foo{"Foo"})
+	pico.SetValue("foo", Foo{"Foo"})
+	pico.SetValue("Foo", Foo{"Foo"}) // unnamed wire
+	pico.Set("foofn", func() interface{} {
+		return Foo{"FooFn"}
+	})
 	var bar = Bar{}
 	if err := pico.Wire(&bar); err != nil {
 		t.Fatal("Unexpected error when wiring bar: ", err)
@@ -42,6 +46,10 @@ func TestStructWire(t *testing.T) {
 
 	if bar.Foo.Name() != "Foo" {
 		t.Fatal("Expected \"Foo\" for Foo, got", bar.Foo.Name())
+	}
+
+	if bar.FooPtr.Name() != "Foo" {
+		t.Fatal("Expected \"Foo\" for FooPtr, got", bar.FooPtr.Name())
 	}
 
 	if bar.Other.Name() != "Foo" {
@@ -71,8 +79,8 @@ func TestErrorWire(t *testing.T) {
 		t.Fatal("Expected error for missing provider, nothing")
 	}
 
-	pico.Set("foo", Foo{"Foo"})
-	if err := pico.Set("foo", Foo{"Foo"}); err == nil {
+	pico.SetValue("foo", Foo{"Foo"})
+	if err := pico.SetValue("foo", Foo{"Foo"}); err == nil {
 		t.Fatal("Expected error for double setting, got nothing")
 	}
 

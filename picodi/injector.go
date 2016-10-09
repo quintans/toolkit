@@ -6,22 +6,16 @@ import (
 	"strings"
 )
 
-//Provider defines the inerface that a struct must implement
-// if it wants to provide for an instance to be wired
-type Provider interface {
-	Provide() interface{}
-}
-
 // Injector is a small framework for Dependency Injection  
 type Injector struct {
-	providers map[string]interface{}
+	providers map[string]func () interface{}
 	instances map[string]interface{}
 }
 
 // New creates a new Injector instance
 func New() *Injector {
 	var inj = new(Injector)
-	inj.providers = make(map[string]interface{})
+	inj.providers = make(map[string]func () interface{})
 	inj.instances = make(map[string]interface{})
 
 	return inj
@@ -29,28 +23,28 @@ func New() *Injector {
 
 // Set register a provider.
 // This is used like:
-// type Foo struct { Bar string }
-// inject.Set("foo", Foo{})
-// or
-// inject.Set("foo", func () Foo {
+// inject.Set("foo", func () interface{} {
 //   return Foo{}
 // })
-func (inj *Injector) Set(name string, value interface{}) error {
-	if inj.providers[name] != nil || inj.instances[name] != nil {
+// If the returned value of the provider is to be wired, it must return a pointer
+func (inj *Injector) Set(name string, fn func () interface{}) error {
+	if inj.providers[name] != nil {
 		return errors.New("There is already a provider or value defined for " + name)
 	}
 
-	var t = reflect.TypeOf(value)
-	if t.Kind() == reflect.Func {
-		inj.providers[name] = value
-	} else if _, ok := value.(Provider); ok {
-		inj.providers[name] = value
-	} else {
-		inj.instances[name] = value
-	}
+	inj.providers[name] = fn
 
 	return nil
+}
 
+// SetValue registers a value. 
+// Internally it will register a provider that returns value.
+// This is used like:
+// type Foo struct { Bar string }
+// inject.Set("foo", Foo{})
+// If the returned value of the provider is to be wired, it must return a pointer
+func (inj *Injector) SetValue(name string, value interface{}) error {
+	return inj.Set(name, func () interface{} {return value})
 }
 
 // Get returns the instance by name
@@ -64,12 +58,7 @@ func (inj *Injector) get(fetching []string, name string) (interface{}, error) {
 		// look for a provider
 		var provider = inj.providers[name]
 		if provider != nil {
-			var value interface{}
-			if p, ok := value.(Provider); ok {
-				value = p.Provide()
-			} else {
-				value = callProvider(provider)
-			}
+			var value = provider()
 
 			if err := inj.wire(fetching, value); err != nil {
 				return nil, err
