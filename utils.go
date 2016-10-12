@@ -3,6 +3,7 @@ package toolkit
 import (
 	"reflect"
 	"time"
+	"unicode"
 )
 
 func Match(o1, o2 interface{}) bool {
@@ -53,4 +54,28 @@ func Set(instance interface{}, value interface{}) {
 
 func Milliseconds() int64 {
 	return time.Now().UnixNano() / int64(1e6)
+}
+
+// UncapFirst returns the input string with the first letter in lower case
+func UncapFirst(str string) string {
+	var s string
+	if len(str) > 0 {
+		s = string(unicode.ToLower(rune(str[0])))
+	}
+	if len(str) > 1 {
+		s += str[1:]
+	}
+	return s
+}
+
+// CapFirst returns the input string with the first letter in Upper case
+func CapFirst(str string) string {
+	var s string
+	if len(str) > 0 {
+		s = string(unicode.ToUpper(rune(str[0])))
+	}
+	if len(str) > 1 {
+		s += str[1:]
+	}
+	return s
 }

@@ -3,12 +3,13 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	tk "github.com/quintans/toolkit"
-	"github.com/quintans/toolkit/log"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"unicode"
+
+	tk "github.com/quintans/toolkit"
+	"github.com/quintans/toolkit/log"
 )
 
 var logger = log.LoggerFor("github.com/quintans/toolkit/web")
@@ -41,32 +42,28 @@ type Action struct {
 
 func (this *Action) PushFilterFunc(filters ...func(ctx IContext) error) {
 	for _, filter := range filters {
-		current := &Filter{
-			next:        this.callFilter,
-			handlerFunc: filter,
-		}
-		if this.first == nil {
-			this.first = current
-		} else {
-			this.last.next = current
-		}
-		this.last = current
+		this.pushFilter().handler = filter
 	}
 }
 
 func (this *Action) PushFilter(filters ...Filterer) {
 	for _, filter := range filters {
-		current := &Filter{
-			next:    this.callFilter,
-			handler: filter,
-		}
-		if this.first == nil {
-			this.first = current
-		} else {
-			this.last.next = current
-		}
-		this.last = current
+		this.pushFilter().handler = filter.Handle
 	}
+}
+
+func (this *Action) pushFilter() *Filter {
+	current := &Filter{
+		next: this.callFilter,
+	}
+	if this.first == this.callFilter {
+		this.first = current
+	} else {
+		this.last.next = current
+	}
+	this.last = current
+
+	return current
 }
 
 type Service struct {
@@ -168,16 +165,15 @@ func (this *JsonRpc) Handle(ctx IContext) error {
 	ctx.SetCurrentFilter(act.first)
 	// call filter
 	err = act.first.Apply(ctx)
-
 	if err != nil {
 		return err
 	}
 
 	if call.response != nil {
-		w.Write(call.response)
+		_, err = w.Write(call.response)
 	}
 
-	return nil
+	return err
 }
 
 type invokation struct {
@@ -269,7 +265,8 @@ func (this *JsonRpc) RegisterAs(name string, svc interface{}) *Service {
 					typ.Elem().Name(), p.Name))
 			}
 
-			action.callFilter = &Filter{handlerFunc: invokeFilter}
+			action.callFilter = &Filter{handler: invokeFilter}
+			action.first = action.callFilter
 			actions[p.Name] = action
 		}
 	}
@@ -327,15 +324,4 @@ func invoke(ctx IContext, act *Action, m reflect.Value, args []byte) ([]byte, er
 
 func isExported(name string) bool {
 	return unicode.IsUpper(rune(name[0]))
-}
-
-func capitalize(str string) string {
-	var s string
-	if len(str) > 0 {
-		s = string(unicode.ToUpper(rune(str[0])))
-	}
-	if len(str) > 1 {
-		s += str[1:]
-	}
-	return s
 }
