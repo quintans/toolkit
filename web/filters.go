@@ -36,18 +36,16 @@ type IContext interface {
 	GetRequest() *http.Request
 	GetSession() ISession
 	SetSession(ISession)
-	GetPrincipal() interface{}
-	SetPrincipal(interface{})
-	GetAttribute(string) interface{}
-	SetAttribute(string, interface{})
+	GetAttribute(interface{}) interface{}
+	SetAttribute(interface{}, interface{})
 	GetCurrentFilter() *Filter
 	SetCurrentFilter(*Filter)
 
-	Payload(value interface{}) error
-	PathVars(value interface{}) error
-	QueryVars(value interface{}) error
-	Vars(value interface{}) error
-	Reply(value interface{}) error
+	Payload(interface{}) error
+	PathVars(interface{}) error
+	QueryVars(interface{}) error
+	Vars(interface{}) error
+	Reply(interface{}) error
 }
 
 func NewContext(w http.ResponseWriter, r *http.Request) *Context {
@@ -62,8 +60,7 @@ type Context struct {
 	Response      http.ResponseWriter
 	Request       *http.Request
 	Session       ISession
-	Principal     interface{}            // user data
-	Attributes    map[string]interface{} // attributes only valid in this request
+	Attributes    map[interface{}]interface{} // attributes only valid in this request
 	CurrentFilter *Filter
 	jsonQuery     string
 }
@@ -71,7 +68,7 @@ type Context struct {
 func (this *Context) Init(w http.ResponseWriter, r *http.Request) {
 	this.Response = w
 	this.Request = r
-	this.Attributes = make(map[string]interface{})
+	this.Attributes = make(map[interface{}]interface{})
 }
 
 // Proceed proceeds to the next valid rule
@@ -118,19 +115,11 @@ func (this *Context) SetSession(session ISession) {
 	this.Session = session
 }
 
-func (this *Context) GetPrincipal() interface{} {
-	return this.Principal
-}
-
-func (this *Context) SetPrincipal(principal interface{}) {
-	this.Principal = principal
-}
-
-func (this *Context) GetAttribute(key string) interface{} {
+func (this *Context) GetAttribute(key interface{}) interface{} {
 	return this.Attributes[key]
 }
 
-func (this *Context) SetAttribute(key string, value interface{}) {
+func (this *Context) SetAttribute(key interface{}, value interface{}) {
 	this.Attributes[key] = value
 }
 
