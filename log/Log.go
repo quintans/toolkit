@@ -290,7 +290,10 @@ func (this *Logger) logStamp(level LogLevel) string {
 		if result.Len() > 0 {
 			result.WriteString(" ")
 		}
-		result.WriteString(level.String())
+		// left padding level
+		var s = level.String()
+		s = strings.Repeat(" ", 5-len(s)) + s
+		result.WriteString(s)
 	}
 
 	if showCaller {
