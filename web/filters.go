@@ -38,8 +38,7 @@ type IContext interface {
 	SetSession(ISession)
 	GetAttribute(interface{}) interface{}
 	SetAttribute(interface{}, interface{})
-	GetCurrentFilter() *Filter
-	SetCurrentFilter(*Filter)
+	CurrentFilter() *Filter
 
 	Payload(interface{}) error
 	PathVars(interface{}) error
@@ -48,45 +47,61 @@ type IContext interface {
 	Reply(interface{}) error
 }
 
-func NewContext(w http.ResponseWriter, r *http.Request) *Context {
+func NewContext(w http.ResponseWriter, r *http.Request, filters []*Filter) *Context {
 	this := new(Context)
-	this.Init(w, r)
+	this.Init(this, w, r, filters)
 	return this
 }
 
 var _ IContext = &Context{}
 
 type Context struct {
-	Response      http.ResponseWriter
-	Request       *http.Request
-	Session       ISession
-	Attributes    map[interface{}]interface{} // attributes only valid in this request
-	CurrentFilter *Filter
-	jsonQuery     string
+	Response   http.ResponseWriter
+	Request    *http.Request
+	Session    ISession
+	Attributes map[interface{}]interface{} // attributes only valid in this request
+	filters    []*Filter
+	filterPos  int
+	jsonQuery  string
+	Extender   IContext
 }
 
-func (this *Context) Init(w http.ResponseWriter, r *http.Request) {
+func (this *Context) nextFilter() *Filter {
+	this.filterPos++
+	if this.filterPos < len(this.filters) {
+		return this.filters[this.filterPos]
+	}
+	// don't let ir go higher than the max
+	this.filterPos = len(this.filters)
+
+	return nil
+}
+
+func (this *Context) Init(c IContext, w http.ResponseWriter, r *http.Request, filters []*Filter) {
+	this.Extender = c
 	this.Response = w
 	this.Request = r
+	this.filterPos = -1
+	this.filters = filters
 	this.Attributes = make(map[interface{}]interface{})
 }
 
 // Proceed proceeds to the next valid rule
 func (this *Context) Proceed() error {
-	var next = this.CurrentFilter.next
+	var next = this.nextFilter()
 	if next != nil {
 		if next.rule == "" {
-			this.CurrentFilter = next
 			filtersLog.Debug("executing filter without rule")
-			return next.Apply(this)
+			return next.handler(this.Extender)
 		} else {
 			// go to the next valid filter.
 			// I don't use recursivity for this, because it can be very deep
-			for n := this.CurrentFilter.next; n != nil; n = n.next {
+			for i := this.filterPos; i < len(this.filters); i++ {
+				var n = this.filters[i]
 				if n.rule != "" && n.IsValid(this) {
-					this.CurrentFilter = n
+					this.filterPos = i
 					filtersLog.Debugf("executing filter %s", n.rule)
-					return n.Apply(this)
+					return n.handler(this.Extender)
 				}
 			}
 		}
@@ -123,12 +138,11 @@ func (this *Context) SetAttribute(key interface{}, value interface{}) {
 	this.Attributes[key] = value
 }
 
-func (this *Context) GetCurrentFilter() *Filter {
-	return this.CurrentFilter
-}
-
-func (this *Context) SetCurrentFilter(current *Filter) {
-	this.CurrentFilter = current
+func (this *Context) CurrentFilter() *Filter {
+	if this.filterPos < len(this.filters) {
+		return this.filters[this.filterPos]
+	}
+	return nil
 }
 
 func (this *Context) Payload(value interface{}) error {
@@ -145,7 +159,7 @@ func (this *Context) Payload(value interface{}) error {
 }
 
 func (this *Context) PathVars(value interface{}) error {
-	var filter = this.GetCurrentFilter()
+	var filter = this.CurrentFilter()
 	if filter.jsonPath != "" {
 		return json.Unmarshal([]byte(filter.jsonPath), value)
 	}
@@ -237,7 +251,6 @@ type Filter struct {
 	jsonPath       string
 	allowedMethods []string
 
-	next    *Filter
 	handler func(ctx IContext) error
 }
 
@@ -329,80 +342,28 @@ func toJsonVal(ori string, typ string) string {
 	return val
 }
 
-func (this *Filter) Apply(ctx IContext) error {
-	return this.handler(ctx)
-}
-
-func (this *Filter) Push(filters ...func(ctx IContext) error) *Filter {
-	for _, f := range filters {
-		last := this.fetchEmpty("")
-		last.handler = f
-		return last
-	}
-
-	return this
-}
-
-func (this *Filter) fetchEmpty(rule string) *Filter {
-	// if there is no handler returns self
-	if this.handler == nil {
-		this.rule = rule
-		return this
-	}
-
-	// goes through the chain stoping at the last link
-	var last = this
-	for next := last.next; next != nil; {
-		last = next
-	}
-
-	// apend a new Filter
-	last.next = &Filter{
-		rule: rule,
-	}
-
-	// returns appended filter
-	return last.next
-}
-
-// Join joins several filters in to one.
-// This way we can have sevral filters under one rule.
-func Join(filters ...func(ctx IContext) error) func(ctx IContext) error {
-	var filter = new(Filter)
-	filter.Push(filters...)
-
-	return func(ctx IContext) error {
-		var last = ctx.GetCurrentFilter()
-		ctx.SetCurrentFilter(&Filter{next: filter})
-		var err = ctx.Proceed()
-		ctx.SetCurrentFilter(last)
-		return err
-	}
-}
-
-func NewFilterHandler(contextFactory func(w http.ResponseWriter, r *http.Request) IContext) *FilterHandler {
+func NewFilterHandler(contextFactory func(w http.ResponseWriter, r *http.Request, filters []*Filter) IContext) *FilterHandler {
 	this := new(FilterHandler)
+	this.filters = make([]*Filter, 0)
 	this.contextFactory = contextFactory
 	return this
 }
 
 type FilterHandler struct {
-	first          *Filter
-	last           *Filter
-	contextFactory func(w http.ResponseWriter, r *http.Request) IContext
+	filters        []*Filter
+	contextFactory func(w http.ResponseWriter, r *http.Request, filters []*Filter) IContext
 	lastRule       string
 }
 
 func (this *FilterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if this.first != nil {
+	if len(this.filters) > 0 {
 		var ctx IContext
 		if this.contextFactory == nil {
 			// default
-			ctx = NewContext(w, r)
+			ctx = NewContext(w, r, this.filters)
 		} else {
-			ctx = this.contextFactory(w, r)
+			ctx = this.contextFactory(w, r, this.filters)
 		}
-		ctx.SetCurrentFilter(&Filter{next: this.first})
 		err := ctx.Proceed()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -435,7 +396,7 @@ func (this *FilterHandler) Push(rule string, filters ...func(ctx IContext) error
 // the concatenation of the last rule that started with '/' and ended with a '*'
 // with this one (the '*' is omitted).
 // ex: /greet/* + sayHi/{Id} = /greet/sayHi/{Id}
-func (this *FilterHandler) PushMethod(methods []string, rule string, filters ...func(ctx IContext) error) {
+func (this *FilterHandler) PushMethod(methods []string, rule string, handlers ...func(ctx IContext) error) {
 	if strings.HasPrefix(rule, "/") && strings.HasSuffix(rule, "*") {
 		this.lastRule = rule[:len(rule)-1]
 	} else if !strings.HasPrefix(rule, "/") {
@@ -446,24 +407,29 @@ func (this *FilterHandler) PushMethod(methods []string, rule string, filters ...
 		}
 	}
 
-	for k, filter := range filters {
-		current := &Filter{
-			handler:        filter,
-			allowedMethods: methods,
-		}
+	if len(handlers) > 0 {
+		f := ConvertHandlers(handlers...)
 		// rule is only set for the first filter
-		if k == 0 {
-			current.rule = rule
+		if rule != "" {
+			f[0].rule = rule
 			if i := strings.Index(rule, "{"); i != -1 {
-				current.template = strings.Split(rule, "/")
+				f[0].template = strings.Split(rule, "/")
 			}
 		}
+		f[0].allowedMethods = methods
 
-		if this.first == nil {
-			this.first = current
-		} else {
-			this.last.next = current
-		}
-		this.last = current
+		this.filters = append(this.filters, f...)
 	}
+}
+
+func (this *FilterHandler) Add(filters ...*Filter) {
+	this.filters = append(this.filters, filters...)
+}
+
+func ConvertHandlers(handlers ...func(ctx IContext) error) []*Filter {
+	var filters = make([]*Filter, len(handlers))
+	for k, v := range handlers {
+		filters[k] = &Filter{handler: v}
+	}
+	return filters
 }

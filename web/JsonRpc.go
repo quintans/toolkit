@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"reflect"
 	"unicode"
 
-	tk "github.com/quintans/toolkit"
 	"github.com/quintans/toolkit/log"
 )
 
@@ -27,172 +25,153 @@ var logger = log.LoggerFor("github.com/quintans/toolkit/web")
 // valid signature:  MyStruct.MyAction([web.IContext][any]) [any][error]
 
 const (
-	CALL        = "_CALL_"
 	UNKNOWN_SRV = "JSONRPC01"
 	UNKNOWN_ACT = "JSONRPC02"
 )
 
 type Action struct {
-	hasContext  bool
-	payloadType reflect.Type
-	first       *Filter
-	last        *Filter
-	callFilter  *Filter
+	name       string
+	callFilter *Filter
+	filters    []*Filter
 }
 
-func (this *Action) PushFilterFunc(filters ...func(ctx IContext) error) {
-	for _, filter := range filters {
-		this.pushFilter().handler = filter
+func NewAction(name string) *Action {
+	return &Action{
+		name:    name,
+		filters: make([]*Filter, 0),
 	}
 }
 
-func (this *Action) PushFilter(filters ...Filterer) {
-	for _, filter := range filters {
-		this.pushFilter().handler = filter.Handle
-	}
-}
-
-func (this *Action) pushFilter() *Filter {
-	current := &Filter{
-		next: this.callFilter,
-	}
-	if this.first == this.callFilter {
-		this.first = current
-	} else {
-		this.last.next = current
-	}
-	this.last = current
-
-	return current
-}
-
-type Service struct {
-	instance reflect.Value
-	actions  map[string]*Action
-}
-
-func (this *Service) GetAction(actionName string) *Action {
-	action, ok := this.actions[actionName]
-	if !ok {
-		panic("The action " + actionName + " was not found in service")
-	}
-	return action
-}
-
-// the first added filter will be the first to be called
-func (this *Service) PushFilterFunc(actionName string, filters ...func(ctx IContext) error) {
-	action := this.GetAction(actionName)
-	action.PushFilterFunc(filters...)
-}
-
-// the first added filter will be the first to be called
-func (this *Service) PushFilter(actionName string, filters ...Filterer) {
-	action := this.GetAction(actionName)
-	action.PushFilter(filters...)
+func (this *Action) SetFilters(filters ...func(ctx IContext) error) {
+	this.filters = ConvertHandlers(filters...)
 }
 
 type JsonRpc struct {
-	services       map[string]*Service
-	contextFactory func(w http.ResponseWriter, r *http.Request) IContext
+	servicePath string
+	filters     []*Filter
+	actions     []*Action
 }
 
-func NewJsonRpc(contextFactory func(w http.ResponseWriter, r *http.Request) IContext) *JsonRpc {
+func NewJsonRpc(svc interface{}, filters ...func(c IContext) error) *JsonRpc {
 	this := new(JsonRpc)
-	this.services = make(map[string]*Service)
-	this.contextFactory = contextFactory
-	return this
-}
 
-func (this *JsonRpc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var ctx IContext
-	if this.contextFactory == nil {
-		// default
-		ctx = NewContext(w, r)
-	} else {
-		ctx = this.contextFactory(w, r)
+	v := reflect.ValueOf(svc)
+	t := v.Type()
+	if t.Kind() != reflect.Ptr {
+		panic("Supplied instance must be a pointer.")
 	}
-	err := this.Handle(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	// Only structs are supported
+	if t.Elem().Kind() != reflect.Struct {
+		panic("Supplied instance is not a struct.")
 	}
-}
 
-// implementation of web.Filterer interface
-func (this *JsonRpc) Handle(ctx IContext) error {
-	w := ctx.GetResponse()
-	r := ctx.GetRequest()
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Expires", "-1")
+	this.servicePath = t.Name()
 
-	uri := ctx.GetRequest().RequestURI
-	var service string
-	var action string
-	last := len(uri)
-	for i := last - 1; i > 0; i-- {
-		if uri[i] == '/' {
-			if action == "" {
-				action = uri[i+1 : last]
-			} else if service == "" {
-				service = uri[i+1 : last]
-				break
+	this.actions = make([]*Action, 0)
+
+	this.filters = ConvertHandlers(filters...)
+
+	// loop through the struct's fields and set the map
+	for i := 0; i < t.NumMethod(); i++ {
+		method := t.Method(i)
+		if isExported(method.Name) {
+			var action = NewAction(method.Name)
+
+			logger.Debugf("Registering JSON-RPC %s/%s", this.servicePath, method.Name)
+
+			// validate argument types
+			size := method.Type.NumIn()
+			if size > 3 {
+				panic(fmt.Sprintf("Invalid service %s.%s. Service actions can only have at the most two  parameters.",
+					t.Elem().Name(), method.Name))
+			} else if size > 2 {
+				t := method.Type.In(1)
+				if t != contextType {
+					panic(fmt.Sprintf("Invalid service %s.%s. In a two paramater action the first must be the interface web.IContext.",
+						t.Elem().Name(), method.Name))
+				}
 			}
-			last = i
+
+			var payloadType reflect.Type
+			var hasContext bool
+			if size == 3 {
+				payloadType = method.Type.In(2)
+				hasContext = true
+			} else if size == 2 {
+				t := method.Type.In(1)
+				if t != contextType {
+					payloadType = t
+				} else {
+					hasContext = true
+				}
+			}
+
+			//logger.Debugf("Has Contex: %t; Payload Type: %s", hasContext, payloadType)
+
+			// validate return types
+			size = method.Type.NumOut()
+			if size > 2 {
+				panic(fmt.Sprintf("Invalid service %s.%s. Service actions can only have at the most two return values.",
+					t.Elem().Name(), method.Name))
+			} else if size > 1 && errorType != method.Type.Out(1) {
+				panic(fmt.Sprintf("Invalid service %s.%s. In a two return values actions the second can only be an error. Found %s.",
+					t.Elem().Name(), method.Name))
+			}
+
+			action.callFilter = &Filter{handler: createCallHandler(payloadType, hasContext, v.Method(i))}
+			this.actions = append(this.actions, action)
 		}
 	}
 
-	payload, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return err
-	}
-
-	svc, ok := this.services[service]
-	if !ok {
-		return &tk.Fail{UNKNOWN_SRV, service}
-	}
-
-	act, ok := svc.actions[action]
-	if !ok {
-		return &tk.Fail{UNKNOWN_ACT, fmt.Sprintf("%s.%s", service, action)}
-	}
-
-	mthd := svc.instance.MethodByName(action)
-	call := &invokation{
-		action:  act,
-		method:  mthd,
-		payload: payload,
-	}
-	ctx.SetAttribute(CALL, call)
-	ctx.SetCurrentFilter(act.first)
-	// call filter
-	err = act.first.Apply(ctx)
-	if err != nil {
-		return err
-	}
-
-	if call.response != nil {
-		_, err = w.Write(call.response)
-	}
-
-	return err
+	return this
 }
 
-type invokation struct {
-	action   *Action
-	method   reflect.Value
-	payload  []byte
-	response []byte
+func (this *JsonRpc) SetFilters(filters ...func(ctx IContext) error) {
+	this.filters = ConvertHandlers(filters...)
 }
 
-func invokeFilter(ctx IContext) error {
-	call := ctx.GetAttribute(CALL).(*invokation)
+func (this *JsonRpc) GetAction(actionName string) *Action {
+	for _, v := range this.actions {
+		if v.name == actionName {
+			return v
+		}
+	}
 
-	var err error
-	call.response, err = invoke(ctx, call.action, call.method, call.payload)
-	return err
+	panic("The action " + actionName + " was not found in service")
 }
 
-func (this *JsonRpc) Register(svc interface{}) *Service {
-	return this.RegisterAs("", svc)
+func (this *JsonRpc) SetActionFilters(actionName string, filters ...func(ctx IContext) error) {
+	action := this.GetAction(actionName)
+	action.SetFilters(filters...)
+}
+
+func (this *JsonRpc) Build(servicePath string) []*Filter {
+	var prefix string
+	if servicePath == "" {
+		prefix = this.servicePath
+	} else {
+		prefix = servicePath
+	}
+	prefix += "/"
+	var filters []*Filter
+
+	if len(this.filters) > 0 {
+		filters = this.filters
+		filters[0].rule = prefix + "*"
+	} else {
+		filters = make([]*Filter, 0)
+	}
+
+	for _, v := range this.actions {
+		var f = v.filters
+		f = append(f, v.callFilter)
+		// apply rule to the first one
+		f[0].rule = prefix + v.name
+		filters = append(filters, f...)
+	}
+
+	return filters
 }
 
 var (
@@ -200,126 +179,62 @@ var (
 	contextType = reflect.TypeOf((*IContext)(nil)).Elem() // interface type
 )
 
-func (this *JsonRpc) RegisterAs(name string, svc interface{}) *Service {
-	typ := reflect.TypeOf(svc)
-	if typ.Kind() != reflect.Ptr {
-		panic("Supplied instance must be a pointer.")
-	}
+func createCallHandler(payloadType reflect.Type, hasContext bool, method reflect.Value) func(ctx IContext) error {
+	return func(ctx IContext) error {
+		w := ctx.GetResponse()
+		r := ctx.GetRequest()
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Expires", "-1")
 
-	// Only structs are supported
-	if typ.Elem().Kind() != reflect.Struct {
-		panic("Supplied instance is not a struct.")
-	}
-
-	actions := make(map[string]*Action)
-
-	var serviceName string
-	if name == "" {
-		serviceName = typ.Name()
-	} else {
-		serviceName = name
-	}
-
-	// loop through the struct's fields and set the map
-	for i := 0; i < typ.NumMethod(); i++ {
-		p := typ.Method(i)
-		if isExported(p.Name) {
-			action := new(Action)
-
-			logger.Debugf("Registering JSON-RPC %s/%s", serviceName, p.Name)
-
-			// validate argument types
-			size := p.Type.NumIn()
-			if size > 3 {
-				panic(fmt.Sprintf("Invalid service %s.%s. Service actions can only have at the most two  parameters.",
-					typ.Elem().Name(), p.Name))
-			} else if size > 2 {
-				t := p.Type.In(1)
-				if t != contextType {
-					panic(fmt.Sprintf("Invalid service %s.%s. In a two paramater action the first must be the interface web.IContext.",
-						typ.Elem().Name(), p.Name))
-				}
+		var payload []byte
+		if r.Body != nil {
+			var err error
+			if payload, err = ioutil.ReadAll(r.Body); err != nil {
+				return err
 			}
-
-			if size == 3 {
-				action.payloadType = p.Type.In(2)
-				action.hasContext = true
-			} else if size == 2 {
-				t := p.Type.In(1)
-				if t != contextType {
-					action.payloadType = t
-				} else {
-					action.hasContext = true
-				}
-			}
-
-			//logger.Debugf("Has Contex: %t; Payload Type: %s", action.hasContext, action.payloadType)
-
-			// validate return types
-			size = p.Type.NumOut()
-			if size > 2 {
-				panic(fmt.Sprintf("Invalid service %s.%s. Service actions can only have at the most two return values.",
-					typ.Elem().Name(), p.Name))
-			} else if size > 1 && errorType != p.Type.Out(1) {
-				panic(fmt.Sprintf("Invalid service %s.%s. In a two return values actions the second can only be an error. Found %s.",
-					typ.Elem().Name(), p.Name))
-			}
-
-			action.callFilter = &Filter{handler: invokeFilter}
-			action.first = action.callFilter
-			actions[p.Name] = action
 		}
-	}
 
-	val := reflect.ValueOf(svc)
-	s := &Service{val, actions}
-	this.services[serviceName] = s
-	return s
-}
-
-func invoke(ctx IContext, act *Action, m reflect.Value, args []byte) ([]byte, error) {
-	var param reflect.Value
-	var err error
-	if act.payloadType != nil {
-		// get pointer
-		param = reflect.New(act.payloadType)
-		// TODO: what happens if args is "null" ???
-		err = json.Unmarshal(args, param.Interface())
-		if err != nil {
-			logger.Errorf("An error ocurred when unmarshalling the call for %s\n\tinput: %s\n\terror: %s", ctx.GetRequest().URL.Path, args, err)
-			return nil, err
-		}
-	}
-	params := make([]reflect.Value, 0)
-	if act.hasContext {
-		params = append(params, reflect.ValueOf(ctx))
-	}
-	if act.payloadType != nil {
-		params = append(params, param.Elem())
-	}
-
-	results := m.Call(params)
-
-	// check for error
-	var result []byte
-	for k, v := range results {
-		if v.Type() == errorType {
-			if !v.IsNil() {
-				return nil, v.Interface().(error)
-			}
-			break
-		} else {
-			// stores the result to return at the end of the check
-			data := results[k].Interface()
-			result, err = json.Marshal(data)
+		var param reflect.Value
+		var err error
+		if payloadType != nil {
+			// get pointer
+			param = reflect.New(payloadType)
+			// TODO: what happens if args is "null" ???
+			err = json.Unmarshal(payload, param.Interface())
 			if err != nil {
-				logger.Errorf("An error ocurred when marshalling the response from %s\n\tresponse: %v\n\terror: %s", ctx.GetRequest().URL.Path, data, err)
-				return nil, err
+				logger.Errorf("An error ocurred when unmarshalling the call for %s\n\tinput: %s\n\terror: %s", ctx.GetRequest().URL.Path, payload, err)
+				return err
 			}
 		}
-	}
+		params := make([]reflect.Value, 0)
+		if hasContext {
+			params = append(params, reflect.ValueOf(ctx))
+		}
+		if payloadType != nil {
+			params = append(params, param.Elem())
+		}
 
-	return result, nil
+		results := method.Call(params)
+
+		// check for error
+		for k, v := range results {
+			if v.Type() == errorType {
+				if !v.IsNil() {
+					return v.Interface().(error)
+				}
+				break
+			} else {
+				// stores the result to return at the end of the check
+				data := results[k].Interface()
+				if err = ctx.Reply(data); err != nil {
+					logger.Errorf("An error ocurred when marshalling the response from %s\n\tresponse: %v\n\terror: %s", ctx.GetRequest().URL.Path, data, err)
+					return err
+				}
+			}
+		}
+
+		return nil
+	}
 }
 
 func isExported(name string) bool {
