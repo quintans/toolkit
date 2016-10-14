@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"reflect"
 	"unicode"
 
@@ -170,6 +171,16 @@ func (this *JsonRpc) Build(servicePath string) []*Filter {
 		f[0].rule = prefix + v.name
 		filters = append(filters, f...)
 	}
+
+	// guard
+	f := &Filter{
+		rule: prefix + "*",
+		handler: func(c IContext) error {
+			http.Error(c.GetResponse(), "Unknown Service "+c.GetRequest().URL.Path, http.StatusNotFound)
+			return nil
+		},
+	}
+	filters = append(filters, f)
 
 	return filters
 }
