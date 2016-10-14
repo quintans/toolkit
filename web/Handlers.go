@@ -29,10 +29,34 @@ func (this *BufferedResponse) Header() http.Header {
 }
 
 func (this *BufferedResponse) Write(data []byte) (int, error) {
+	var n, err = this.Body.Write(data)
+	if err == nil && this.Code == 0 {
+		this.Code = http.StatusOK
+	}
+	return n, err
+}
+
+// WriteBefore writes data at the beginning of the buffer.
+// It does this by copying the original data, truncating the buffer, then writing
+// what we want and then write the original data.
+func (this *BufferedResponse) WriteBefore(data []byte) error {
+	var body = this.Body.Bytes()
+	var clone = make([]byte, len(body))
+	copy(clone, body)
+
+	this.Body.Reset()
+	if _, err := this.Body.Write(data); err != nil {
+		return err
+	}
+	if len(clone) > 0 {
+		if _, err := this.Body.Write(clone); err != nil {
+			return err
+		}
+	}
 	if this.Code == 0 {
 		this.Code = http.StatusOK
 	}
-	return this.Body.Write(data)
+	return nil
 }
 
 func (this *BufferedResponse) WriteHeader(code int) {
