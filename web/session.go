@@ -2,12 +2,15 @@ package web
 
 import (
 	"github.com/quintans/toolkit/cache"
+	"github.com/quintans/toolkit/log"
 
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
 	"time"
 )
+
+var logger = log.LoggerFor("github.com/quintans/toolkit/web")
 
 const (
 	COOKIE_NAME = "GSESSION"
