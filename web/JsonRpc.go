@@ -173,13 +173,10 @@ func (this *JsonRpc) Build(servicePath string) []*Filter {
 	}
 
 	// guard
-	f := &Filter{
-		rule: prefix + "*",
-		handler: func(c IContext) error {
-			http.Error(c.GetResponse(), "Unknown Service "+c.GetRequest().URL.Path, http.StatusNotFound)
-			return nil
-		},
-	}
+	f := NewFilter(prefix+"*", func(c IContext) error {
+		http.Error(c.GetResponse(), "Unknown Service "+c.GetRequest().URL.Path, http.StatusNotFound)
+		return nil
+	})
 	filters = append(filters, f)
 
 	return filters

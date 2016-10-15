@@ -47,12 +47,6 @@ type IContext interface {
 	Reply(interface{}) error
 }
 
-func NewContext(w http.ResponseWriter, r *http.Request, filters []*Filter) *Context {
-	this := new(Context)
-	this.Init(this, w, r, filters)
-	return this
-}
-
 var _ IContext = &Context{}
 
 type Context struct {
@@ -63,7 +57,21 @@ type Context struct {
 	filters    []*Filter
 	filterPos  int
 	jsonQuery  string
-	Extender   IContext
+	// Enable to call methods of the extended struct
+	// or to cast the IContext parameter of the handler function
+	// to the right context struct
+	Overrider IContext
+}
+
+func NewContext(w http.ResponseWriter, r *http.Request, filters []*Filter) *Context {
+	var this = new(Context)
+	this.Overrider = this
+	this.Response = w
+	this.Request = r
+	this.filterPos = -1
+	this.filters = filters
+	this.Attributes = make(map[interface{}]interface{})
+	return this
 }
 
 func (this *Context) nextFilter() *Filter {
@@ -77,31 +85,23 @@ func (this *Context) nextFilter() *Filter {
 	return nil
 }
 
-func (this *Context) Init(c IContext, w http.ResponseWriter, r *http.Request, filters []*Filter) {
-	this.Extender = c
-	this.Response = w
-	this.Request = r
-	this.filterPos = -1
-	this.filters = filters
-	this.Attributes = make(map[interface{}]interface{})
-}
-
 // Proceed proceeds to the next valid rule
 func (this *Context) Proceed() error {
+	var c = this.Overrider
 	var next = this.nextFilter()
 	if next != nil {
 		if next.rule == "" {
 			filtersLog.Debug("executing filter without rule")
-			return next.handler(this.Extender)
+			return next.handler(c)
 		} else {
 			// go to the next valid filter.
 			// I don't use recursivity for this, because it can be very deep
 			for i := this.filterPos; i < len(this.filters); i++ {
 				var n = this.filters[i]
-				if n.rule != "" && n.IsValid(this) {
+				if n.rule != "" && n.IsValid(c) {
 					this.filterPos = i
 					filtersLog.Debugf("executing filter %s", n.rule)
-					return n.handler(this.Extender)
+					return n.handler(c)
 				}
 			}
 		}
@@ -252,6 +252,13 @@ type Filter struct {
 	allowedMethods []string
 
 	handler func(ctx IContext) error
+}
+
+func NewFilter(rule string, handler func(c IContext) error) *Filter {
+	var this = new(Filter)
+	this.rule = rule
+	this.handler = handler
+	return this
 }
 
 func (this *Filter) IsValid(ctx IContext) bool {
