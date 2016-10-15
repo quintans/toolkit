@@ -20,9 +20,9 @@ type ISession interface {
 	GetId() string
 	Invalidate()
 	IsInvalid() bool
-	Get(key string) interface{}
-	Delete(key string)
-	Put(key string, value interface{})
+	Get(key interface{}) interface{}
+	Delete(key interface{})
+	Put(key interface{}, value interface{})
 }
 
 func NewSession() *Session {
@@ -33,7 +33,7 @@ func NewSession() *Session {
 
 type Session struct {
 	Id         string
-	Attributes map[string]interface{}
+	Attributes map[interface{}]interface{}
 	Invalid    bool // if true it will be invalidate (removal from Sessions) at the end of the request.
 }
 
@@ -42,7 +42,7 @@ func (this *Session) Init() {
 	b := make([]byte, 32)
 	rand.Read(b)
 	this.Id = base64.URLEncoding.EncodeToString(b)
-	this.Attributes = make(map[string]interface{})
+	this.Attributes = make(map[interface{}]interface{})
 }
 
 func (this *Session) GetId() string {
@@ -57,7 +57,7 @@ func (this *Session) IsInvalid() bool {
 	return this.Invalid
 }
 
-func (this *Session) Get(key string) interface{} {
+func (this *Session) Get(key interface{}) interface{} {
 	v, ok := this.Attributes[key]
 	if ok {
 		return v
@@ -65,11 +65,11 @@ func (this *Session) Get(key string) interface{} {
 	return nil
 }
 
-func (this *Session) Delete(key string) {
+func (this *Session) Delete(key interface{}) {
 	delete(this.Attributes, key)
 }
 
-func (this *Session) Put(key string, value interface{}) {
+func (this *Session) Put(key interface{}, value interface{}) {
 	this.Attributes[key] = value
 }
 
