@@ -1,6 +1,7 @@
 package toolkit
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 	"unicode"
@@ -78,4 +79,33 @@ func CapFirst(str string) string {
 		s += str[1:]
 	}
 	return s
+}
+
+func ToString(v interface{}) string {
+	if t, isT := v.(string); isT {
+		return t
+	} else if t, isT := v.(fmt.Stringer); isT {
+		return t.String()
+	} else {
+		var isNil bool
+		var val reflect.Value
+		if v == nil {
+			isNil = true
+		} else {
+			val = reflect.ValueOf(v)
+			if val.Kind() == reflect.Ptr && val.IsNil() {
+				isNil = true
+			}
+		}
+
+		if isNil {
+			return "<nil>"
+		} else {
+			x := val.Interface()
+			if val.Kind() == reflect.Ptr {
+				x = val.Elem().Interface()
+			}
+			return fmt.Sprint(x)
+		}
+	}
 }
