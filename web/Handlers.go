@@ -29,7 +29,11 @@ func (this *BufferedResponse) Header() http.Header {
 }
 
 func (this *BufferedResponse) Write(data []byte) (int, error) {
-	var n, err = this.Body.Write(data)
+	var n int
+	var err error
+	if len(data) > 0 {
+		n, err = this.Body.Write(data)
+	}
 	if err == nil && this.Code == 0 {
 		this.Code = http.StatusOK
 	}
