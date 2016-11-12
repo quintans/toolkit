@@ -79,9 +79,4 @@ func TestErrorWire(t *testing.T) {
 		t.Fatal("Expected error for missing provider, nothing")
 	}
 
-	pico.SetValue("foo", Foo{"Foo"})
-	if err := pico.SetValue("foo", Foo{"Foo"}); err == nil {
-		t.Fatal("Expected error for double setting, got nothing")
-	}
-
 }
