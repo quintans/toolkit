@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/quintans/toolkit/log"
 )
+
+var logger = log.LoggerFor("github.com/quintans/picodi")
 
 // IWire is an interface for any implementation that has to implement wiring.
 //
@@ -144,7 +148,8 @@ func (pdi *PicoDI) wire(fetching []chain, value interface{}) error {
 			}
 
 			var fieldName = t.Name() + "." + f.Name
-			var names = append(fetching, chain{fieldName, name})
+			var link = chain{fieldName, name}
+			var names = append(fetching, link)
 
 			var fieldValue = s.Field(i)
 			if fieldValue.CanSet() {
@@ -154,6 +159,7 @@ func (pdi *PicoDI) wire(fetching []chain, value interface{}) error {
 					return err
 				}
 
+				logger.Debugf("Wiring %s", link.String())
 				fieldValue.Set(reflect.ValueOf(v))
 			} else if method := val.MethodByName("Set" + strings.Title(f.Name)); method.IsValid() {
 				// getter defined for the pointer
@@ -163,6 +169,7 @@ func (pdi *PicoDI) wire(fetching []chain, value interface{}) error {
 					return err
 				}
 
+				logger.Debugf("Wiring by setter %s", link.String())
 				method.Call([]reflect.Value{reflect.ValueOf(v)})
 			}
 		}
