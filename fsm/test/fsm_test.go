@@ -1,69 +1,91 @@
 package test
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/quintans/toolkit/fsm"
+	"github.com/quintans/toolkit/fsm2"
+)
+
+// event
+const (
+	BOING = "BOING"
+	TICK  = "TICK"
+	LOOP  = "LOOP"
+)
+
+// states
+var (
+	green  = fsm2.NewState("GREEN")
+	yellow = fsm2.NewState("YELLOW")
+	red    = fsm2.NewState("RED")
+	bounce = fsm2.NewState("BOUNCE")
 )
 
 func TestSimpleTransition(t *testing.T) {
-	sm := fsm.NewFSM()
-
-	sm.For("GREEN").When("TICK", "YELLOW")
-	sm.For("YELLOW").When("TICK", "RED")
-	sm.For("RED").When("TICK", "GREEN")
-	sm.Start()
-
-	sm.Trigger("TICK")
-	if sm.State() != "YELLOW" {
-		t.Error("Expected state YELLOW got %s", sm.State())
+	// transitions
+	green.AddTransition(TICK, yellow)
+	yellow.AddTransition(TICK, bounce)
+	bounce.AddTransition(BOING, red)
+	bounce.OnEvent = func(e *fsm2.Event) *fsm2.Event {
+		return fsm2.NewEvent(BOING, nil)
 	}
 
-	sm.Trigger("TICK")
-	if sm.State() != "RED" {
-		t.Error("Expected state RED got %s", sm.State())
+	red.AddTransition(TICK, green)
+	red.AddTransition(LOOP, red)
+	var redState struct {
+		ExitCount  int
+		EnterCount int
+		EventCount int
+	}
+	red.OnEnter = func(e *fsm2.Event) {
+		redState.EnterCount++
+	}
+	red.OnExit = func(e *fsm2.Event) {
+		redState.ExitCount++
+	}
+	red.OnEvent = func(e *fsm2.Event) *fsm2.Event {
+		redState.EventCount++
+		return nil
 	}
 
-	sm.Trigger("TICK")
-	if sm.State() != "GREEN" {
-		t.Error("Expected state GREEN got %s", sm.State())
-	}
-}
+	// Sate machine
+	sm := fsm2.NewStateMachine("SimpleTransition")
+	sm.AddState(green)
+	sm.AddState(yellow)
+	sm.AddState(red)
 
-func TestTransitionWithEvents(t *testing.T) {
-
-	onBeforeTransitionCnt := 0
-	onExitCnt := 0
-	onAllwaysCnt := 0
-	//onEnterCnt := 0
-	onAfterTransitionCnt := 0
-	onStateChangeCnt := 0
-
-	onBeforeTransition := func() { onBeforeTransitionCnt++ }
-	onExit := func() { onExitCnt++ }
-	onAllways := func() { onAllwaysCnt++; fmt.Println("onAllwaysCnt:", onAllwaysCnt) }
-	//onEnter := func() { onEnterCnt++ }
-	onAfterTransition := func() { onAfterTransitionCnt++ }
-	onStateChange := func() { onStateChangeCnt++ }
-
-	sm := fsm.NewFSM()
-	sm.For("GREEN").
-		When("TICK", "YELLOW"). // transition
-		OnBeforeTransition(onBeforeTransition).
-		OnAfterTransition(onAfterTransition).
-		OnSet(onAllways).
-		OnExit(onExit)
-	sm.AdChangeListener(onStateChange)
-	sm.Start()
-
-	sm.Trigger("TICK")
-
-	if sm.State() != "YELLOW" {
-		t.Error("Expected state YELLOW got %s", sm.State())
+	sm.Event(TICK, nil)
+	if sm.State() != yellow {
+		t.Error("Expected state YELLOW got,", sm.State())
 	}
 
-	if onBeforeTransitionCnt != 1 {
-		t.Error("Expected 1 for onBeforeTransitionCnt, got %v", onBeforeTransitionCnt)
+	sm.Event(TICK, nil)
+	if sm.State() != red {
+		t.Error("Expected state RED got,", sm.State())
 	}
+
+	sm.Event(LOOP, nil)
+	sm.Event(LOOP, nil)
+	if sm.State() != red {
+		t.Error("Expected state RED got,", sm.State())
+	}
+	if redState.EnterCount != 1 {
+		t.Error("Expected RED OnEnter count of 1, got", redState.EnterCount)
+	}
+	if redState.EventCount != 3 {
+		t.Error("Expected RED OnEvent count of 3, got", redState.EventCount)
+	}
+	if redState.ExitCount != 0 {
+		t.Error("Expected RED OnExit count of 0, got", redState.ExitCount)
+	}
+
+	sm.Event(TICK, nil)
+	if sm.State() != green {
+		t.Error("Expected state GREEN got,", sm.State())
+	}
+
+	if redState.ExitCount != 1 {
+		t.Error("Expected RED OnExit count of 1, got", redState.ExitCount)
+	}
+
 }
