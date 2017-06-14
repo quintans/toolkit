@@ -16,6 +16,18 @@ type Worker struct {
 	Prefix  string
 	Level   LogLevel
 	Writers []LogWriter
+
+	showLevel    bool
+	showCaller   bool
+	timeFormater func(time.Time) string
+}
+
+func (wrk *Worker) ShowLevel(show bool) {
+	wrk.showLevel = show
+}
+
+func (wrk *Worker) ShowCaller(show bool) {
+	wrk.showCaller = show
 }
 
 type LogHandler struct {
@@ -28,18 +40,13 @@ type LogMaster struct {
 }
 
 var (
-	logMaster    = &LogMaster{}
-	quit         = make(chan struct{})
-	showLevel    = true
-	showCaller   bool
-	timeFormater func(time.Time) string
+	logMaster = &LogMaster{}
 )
 
 func init() {
 	logMaster.workers = list.New()
 	// root logger
 	Register("/", DEBUG, NewConsoleAppender(false))
-	SetTimeFormat("%Y/%02M/%02D %02h:%02m:%02s.%03x")
 }
 
 /*
@@ -62,12 +69,17 @@ func normalizeNamespace(namespace string) string {
 	return namespace
 }
 
-func Register(namespace string, level LogLevel, writers ...LogWriter) {
+func Register(namespace string, level LogLevel, writers ...LogWriter) *Worker {
 	namespace = normalizeNamespace(namespace)
 
 	// if there are no supplied writers use the ones from the parent
-	worker := &Worker{Prefix: namespace, Level: level, Writers: writers}
-	if writers == nil {
+	worker := &Worker{
+		Prefix:    namespace,
+		Level:     level,
+		Writers:   writers,
+		showLevel: true,
+	}
+	if len(writers) == 0 {
 		wrk := logMaster.fetchWorker(namespace)
 		worker.Writers = wrk.Writers
 	}
@@ -97,6 +109,11 @@ func Register(namespace string, level LogLevel, writers ...LogWriter) {
 	if !processed {
 		logMaster.workers.PushBack(worker)
 	}
+
+	// default timestamp
+	worker.SetTimeFormat("%Y/%02M/%02D %02h:%02m:%02s.%03x")
+
+	return worker
 }
 
 func RootLogger() *Logger {
@@ -108,14 +125,6 @@ func LoggerFor(namespace string) *Logger {
 	logger := new(Logger)
 	logger.tag = namespace
 	return logger
-}
-
-func ShowLevel(show bool) {
-	showLevel = true
-}
-
-func ShowCaller(show bool) {
-	showCaller = true
 }
 
 func (this *LogMaster) fetchWorker(tag string) *Worker {
@@ -145,9 +154,9 @@ const (
 
 // available formats: Y,M,D,h,m,s,x.
 // these format will be replaced by 'd' and used normaly with fmt.Sprintf
-func SetTimeFormat(format string) {
+func (wrk *Worker) SetTimeFormat(format string) {
 	if format == "" {
-		timeFormater = nil
+		wrk.timeFormater = nil
 		return
 	}
 
@@ -174,7 +183,7 @@ func SetTimeFormat(format string) {
 			last = false
 		}
 	}
-	timeFormater = func(t time.Time) string {
+	wrk.timeFormater = func(t time.Time) string {
 		params := make([]interface{}, 0)
 		for _, v := range keys {
 			switch v {
@@ -281,12 +290,14 @@ func (this *Logger) CallerAt(depth int) *Logger {
 
 func (this *Logger) logStamp(level LogLevel) string {
 	t := time.Now()
+	var wrk = logMaster.fetchWorker(this.tag)
+
 	var result bytes.Buffer
-	if timeFormater != nil {
-		result.WriteString(timeFormater(t))
+	if wrk.timeFormater != nil {
+		result.WriteString(wrk.timeFormater(t))
 	}
 
-	if showLevel {
+	if wrk.showLevel {
 		if result.Len() > 0 {
 			result.WriteString(" ")
 		}
@@ -296,7 +307,7 @@ func (this *Logger) logStamp(level LogLevel) string {
 		result.WriteString(s)
 	}
 
-	if showCaller {
+	if wrk.showCaller {
 		if result.Len() > 0 {
 			result.WriteString(" ")
 		}
