@@ -2,7 +2,6 @@ package log
 
 import (
 	"bytes"
-	"container/list"
 	"fmt"
 	"runtime"
 	"strings"
@@ -36,7 +35,7 @@ type LogHandler struct {
 }
 
 type LogMaster struct {
-	workers *list.List
+	workers []*Worker
 }
 
 var (
@@ -44,7 +43,7 @@ var (
 )
 
 func init() {
-	logMaster.workers = list.New()
+	logMaster.workers = make([]*Worker, 0)
 	// root logger
 	Register("/", DEBUG, NewConsoleAppender(false))
 }
@@ -83,31 +82,17 @@ func Register(namespace string, level LogLevel, writers ...LogWriter) *Worker {
 		wrk := logMaster.fetchWorker(namespace)
 		worker.Writers = wrk.Writers
 	}
-
-	// Iterate through list of workers
-	var processed bool
-	for e := logMaster.workers.Front(); e != nil; e = e.Next() {
-		wrk := e.Value.(*Worker)
-		if namespace == wrk.Prefix {
-			// stop the old writers if new ones are defined
-			if writers != nil {
-				for _, w := range wrk.Writers {
-					w.Discard()
-				}
-			}
-			// replace
-			e.Value = worker
-			processed = true
-		} else if namespace > wrk.Prefix {
-			logMaster.workers.InsertBefore(worker, e)
-			processed = true
+	// replace if match, append otherwise
+	var missing = true
+	for k, v := range logMaster.workers {
+		if v.Prefix == namespace {
+			logMaster.workers[k] = worker
+			missing = false
 			break
 		}
 	}
-
-	// namespaces are positioned in descending order
-	if !processed {
-		logMaster.workers.PushBack(worker)
+	if missing {
+		logMaster.workers = append(logMaster.workers, worker)
 	}
 
 	// default timestamp
@@ -129,19 +114,19 @@ func LoggerFor(namespace string) *Logger {
 
 func (this *LogMaster) fetchWorker(tag string) *Worker {
 	namespace := normalizeNamespace(tag)
-	for e := this.workers.Front(); e != nil; e = e.Next() {
-		wrk := e.Value.(*Worker)
-		if strings.HasPrefix(namespace, wrk.Prefix) {
-			return wrk
+
+	for _, v := range logMaster.workers {
+		if strings.HasPrefix(namespace, v.Prefix) {
+			return v
 		}
 	}
+
 	panic(fmt.Sprintf("No Worker was found for %s", namespace))
 }
 
 func Shutdown() {
-	for e := logMaster.workers.Front(); e != nil; e = e.Next() {
-		wrk := e.Value.(*Worker)
-		for _, w := range wrk.Writers {
+	for _, v := range logMaster.workers {
+		for _, w := range v.Writers {
 			w.Discard()
 		}
 	}
