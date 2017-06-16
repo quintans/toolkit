@@ -1,10 +1,15 @@
 package toolkit
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // Debouncer struct to support debouncing
 type Debouncer struct {
-	input chan interface{}
+	once   sync.Once
+	input  chan interface{}
+	OnExit func()
 }
 
 // NewDebounce creates a new Debouncer
@@ -13,12 +18,20 @@ func NewDebounce(interval time.Duration, action func(arg interface{})) *Debounce
 	debounce.input = make(chan interface{}, 10)
 
 	go func(input chan interface{}) {
+		// clean up
+		defer func() {
+			if debounce.OnExit != nil {
+				debounce.OnExit()
+			}
+		}()
+
 		var item interface{}
 		var ok bool
 		for {
 			select {
 			case item, ok = <-input:
 				if !ok {
+					// was closed
 					return
 				}
 			case <-time.After(interval):
@@ -38,5 +51,7 @@ func (debounce *Debouncer) Delay(item interface{}) {
 
 // Kill terminates the debouncer
 func (debounce *Debouncer) Kill() {
-	close(debounce.input)
+	debounce.once.Do(func() {
+		close(debounce.input)
+	})
 }
