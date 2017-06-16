@@ -62,7 +62,7 @@ func (pdi *PicoDI) Set(name string, fn func() interface{}) {
 	pdi.providers[name] = fn
 }
 
-// SetNamedValue registers a value with a name.
+// SetValue registers a value with a name.
 // Internally it will register a provider that returns value.
 // This is used like:
 // type Foo struct { Bar string }
