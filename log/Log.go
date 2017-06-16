@@ -36,14 +36,17 @@ type LogHandler struct {
 
 type LogMaster struct {
 	workers []*Worker
+	loggers []*Logger
 }
 
 var (
-	logMaster = &LogMaster{}
+	logMaster = &LogMaster{
+		workers: make([]*Worker, 0),
+		loggers: make([]*Logger, 0),
+	}
 )
 
 func init() {
-	logMaster.workers = make([]*Worker, 0)
 	// root logger
 	Register("/", DEBUG, NewConsoleAppender(false))
 }
@@ -82,21 +85,30 @@ func Register(namespace string, level LogLevel, writers ...LogWriter) *Worker {
 		wrk := logMaster.fetchWorker(namespace)
 		worker.Writers = wrk.Writers
 	}
-	// replace if match, append otherwise
-	var missing = true
-	for k, v := range logMaster.workers {
-		if v.Prefix == namespace {
-			logMaster.workers[k] = worker
-			missing = false
-			break
-		}
-	}
-	if missing {
+
+	if len(logMaster.workers) == 0 {
 		logMaster.workers = append(logMaster.workers, worker)
+	} else {
+		for k, v := range logMaster.workers {
+			if namespace > v.Prefix {
+				// insert. Worker are inserted in descending order by Prefix
+				var s = append(logMaster.workers, nil)
+				copy(s[k+1:], s[k:])
+				s[k] = worker
+				logMaster.workers = s
+				break
+			} else if v.Prefix == namespace {
+				// replace on match
+				logMaster.workers[k] = worker
+				break
+			}
+		}
 	}
 
 	// default timestamp
 	worker.SetTimeFormat("%Y/%02M/%02D %02h:%02m:%02s.%03x")
+
+	logMaster.fireWorkerListeners(worker)
 
 	return worker
 }
@@ -122,6 +134,12 @@ func (this *LogMaster) fetchWorker(tag string) *Worker {
 	}
 
 	panic(fmt.Sprintf("No Worker was found for %s", namespace))
+}
+
+func (this *LogMaster) fireWorkerListeners(worker *Worker) {
+	for _, v := range logMaster.loggers {
+		v.workerListener(worker)
+	}
 }
 
 func Shutdown() {
@@ -242,6 +260,16 @@ type Logger struct {
 	calldepth int
 }
 
+// workerListener is called when a worker is Registered.
+// this way we keep all worker loggers updated when they are later redefined
+func (this *Logger) workerListener(worker *Worker) {
+	this.Lock()
+	if strings.HasPrefix(this.tag, worker.Prefix) && worker.Prefix > this.worker.Prefix {
+		this.worker = worker
+	}
+	this.Unlock()
+}
+
 func (this *Logger) loadWorker() {
 	this.Lock()
 	defer this.Unlock()
@@ -251,11 +279,15 @@ func (this *Logger) loadWorker() {
 	}
 }
 
-func (this *Logger) Level() LogLevel {
+func (this *Logger) getWorker() *Worker {
 	if this.worker == nil {
 		this.loadWorker()
 	}
-	return this.worker.Level
+	return this.worker
+}
+
+func (this *Logger) Level() LogLevel {
+	return this.getWorker().Level
 }
 
 func (this *Logger) Namespace() string {
@@ -330,7 +362,7 @@ func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 		} else {
 			str += format + "\n"
 		}
-		flush(level, str, this.worker.Writers)
+		flush(level, str, this.getWorker().Writers)
 	}
 }
 
@@ -339,7 +371,7 @@ func (this *Logger) log(level LogLevel, a ...interface{}) {
 		var arr = []interface{}{this.logStamp(level)}
 		arr = append(arr, convert(a)...)
 		arr = append(arr, "\n")
-		flush(level, fmt.Sprint(arr...), this.worker.Writers)
+		flush(level, fmt.Sprint(arr...), this.getWorker().Writers)
 	}
 }
 
