@@ -3,6 +3,7 @@ package collections
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	. "github.com/quintans/toolkit"
 )
@@ -122,9 +123,9 @@ func (this *ArrayList) AddAll(values Hasher) bool {
 }
 */
 
-func (this *ArrayList) Sort(greater func(a, b interface{}) bool) []interface{} {
+func (this *ArrayList) Sort(less func(a, b int) bool) []interface{} {
 	tmp := this.Elements()
-	Sort(tmp, greater)
+	sort.Slice(tmp, less)
 	return tmp
 }
 

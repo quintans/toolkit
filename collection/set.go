@@ -1,8 +1,10 @@
 package collections
 
 import (
-	. "github.com/quintans/toolkit"
 	"reflect"
+	"sort"
+
+	. "github.com/quintans/toolkit"
 )
 
 // == HashSet ==
@@ -102,14 +104,14 @@ func (this *HashSet) Delete(value interface{}) bool {
 	return ok
 }
 
-func (this *HashSet) Sort(greater func(a, b interface{}) bool) []interface{} {
+func (this *HashSet) Sort(less func(a, b int) bool) []interface{} {
 	tmp := make([]interface{}, this.entries.Size())
 	i := 0
 	for it := this.entries.Iterator(); it.HasNext(); i++ {
 		tmp[i] = it.Next().Key
 	}
 
-	Sort(tmp, greater)
+	sort.Slice(tmp, less)
 
 	elems := make([]interface{}, len(tmp))
 	for k, v := range tmp {

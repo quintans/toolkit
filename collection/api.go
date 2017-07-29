@@ -19,7 +19,7 @@ type Collection interface {
 	Enumerator() Enumerator
 	Elements() []interface{}
 	AsSlice() interface{} // returns elements in an array. ex: []int
-	Sort(greater func(a, b interface{}) bool) []interface{}
+	Sort(greater func(a, b int) bool) []interface{}
 }
 
 type IList interface {
