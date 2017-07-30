@@ -252,6 +252,14 @@ func ParseLevel(name string, optional LogLevel) LogLevel {
 	return optional
 }
 
+type ILogger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Warnf(string, ...interface{})
+	Errorf(string, ...interface{})
+	Fatalf(string, ...interface{})
+}
+
 type Logger struct {
 	sync.Mutex
 
@@ -259,6 +267,8 @@ type Logger struct {
 	worker    *Worker
 	calldepth int
 }
+
+var _ ILogger = &Logger{}
 
 // workerListener is called when a worker is Registered.
 // this way we keep all worker loggers updated when they are later redefined
