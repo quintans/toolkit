@@ -222,7 +222,7 @@ func isToken(t rune) rune {
 
 type LogLevel int
 
-var logLevels = [...]string{"DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
+var logLevels = [...]string{"ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "NONE"}
 
 func (this LogLevel) String() string {
 	var level = int(this)
@@ -234,7 +234,9 @@ func (this LogLevel) String() string {
 }
 
 const (
-	DEBUG LogLevel = iota
+	ALL LogLevel = iota
+	TRACE
+	DEBUG
 	INFO
 	WARN
 	ERROR
@@ -253,6 +255,7 @@ func ParseLevel(name string, optional LogLevel) LogLevel {
 }
 
 type ILogger interface {
+	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
 	Warnf(string, ...interface{})
@@ -396,6 +399,10 @@ func flush(msgLevel LogLevel, msg string, workers []LogWriter) {
 	}
 }
 
+func (this *Logger) Tracef(format string, what ...interface{}) {
+	this.logf(TRACE, format, what...)
+}
+
 func (this *Logger) Debugf(format string, what ...interface{}) {
 	this.logf(DEBUG, format, what...)
 }
@@ -414,6 +421,10 @@ func (this *Logger) Errorf(format string, what ...interface{}) {
 
 func (this *Logger) Fatalf(format string, what ...interface{}) {
 	this.logf(FATAL, format, what...)
+}
+
+func (this *Logger) Trace(a ...interface{}) {
+	this.log(DEBUG, a...)
 }
 
 func (this *Logger) Debug(a ...interface{}) {
