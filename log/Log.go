@@ -106,7 +106,7 @@ func Register(namespace string, level LogLevel, writers ...LogWriter) *Worker {
 	}
 
 	// default timestamp
-	worker.SetTimeFormat("%Y/%02M/%02D %02h:%02m:%02s.%03x")
+	worker.SetTimeFormat("%Y-%02M-%02D %02h:%02m:%02s.%03x")
 
 	logMaster.fireWorkerListeners(worker)
 
