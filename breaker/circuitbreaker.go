@@ -12,7 +12,7 @@ var TimeoutError = errors.New("Circuit Breaker Timeout")
 
 type EState int
 
-var states = [...]string{"CLOSED", "OPEN"}
+var states = [...]string{"CLOSED", "OPEN", "HALFOPEN"}
 
 func (e EState) String() string {
 	return states[e]
@@ -21,6 +21,7 @@ func (e EState) String() string {
 const (
 	CLOSE EState = iota
 	OPEN
+	HALFOPEN
 )
 
 type Config struct {
@@ -41,7 +42,7 @@ type Stats struct {
 
 type CircuitBreaker struct {
 	Config
-	sync.Mutex
+	sync.RWMutex
 
 	OnChange func(EState)
 
@@ -73,6 +74,8 @@ func (cb *CircuitBreaker) Try(fn func() error, fallback func(err error) error) <
 				if fallback != nil {
 					err = fallback(err)
 				}
+			} else {
+				cb.reset()
 			}
 			cherr <- err
 		}()
@@ -143,6 +146,12 @@ func (cb *CircuitBreaker) fail() {
 	}
 }
 
+func (cb *CircuitBreaker) reset() {
+	cb.Lock()
+	cb.failures = 0
+	cb.Unlock()
+}
+
 func (cb *CircuitBreaker) ok() {
 	cb.Lock()
 	defer cb.Unlock()
@@ -155,9 +164,24 @@ func (cb *CircuitBreaker) ok() {
 }
 
 func (cb *CircuitBreaker) State() EState {
-	return cb.state
+	cb.RLock()
+	defer cb.RUnlock()
+
+	if cb.state == OPEN {
+		if time.Now().After(cb.openUntil) {
+			return HALFOPEN
+		} else {
+			return OPEN
+		}
+	} else {
+		return CLOSE
+	}
+
 }
 
 func (cb *CircuitBreaker) Stats() Stats {
+	cb.RLock()
+	defer cb.RUnlock()
+
 	return cb.stats
 }
