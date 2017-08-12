@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/quintans/toolkit/faults"
 )
 
 type Worker struct {
@@ -371,7 +369,7 @@ func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 	if this.IsActive(level) {
 		str := this.logStamp(level)
 		if len(what) > 0 {
-			str += fmt.Sprintf(format+"\n", convert(what)...)
+			str += fmt.Sprintf(format+"\n", what...)
 		} else {
 			str += format + "\n"
 		}
@@ -382,7 +380,7 @@ func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 func (this *Logger) log(level LogLevel, a ...interface{}) {
 	if this.IsActive(level) {
 		var arr = []interface{}{this.logStamp(level)}
-		arr = append(arr, convert(a)...)
+		arr = append(arr, a...)
 		arr = append(arr, "\n")
 		flush(level, fmt.Sprint(arr...), this.getWorker().Writers)
 	}
@@ -447,14 +445,33 @@ func (this *Logger) Fatal(a ...interface{}) {
 	this.log(FATAL, a...)
 }
 
-func convert(what []interface{}) []interface{} {
-	for k, v := range what {
-		switch t := v.(type) {
-		case *faults.Error:
-			what[k] = t.StackTrace()
-		case func() string:
-			what[k] = t()
-		}
-	}
-	return what
+type LogWrap struct {
+	Logger Logger
+	Tag    string
+}
+
+var _ ILogger = LogWrap{}
+
+func (this LogWrap) Tracef(format string, what ...interface{}) {
+	this.Logger.Tracef(this.Tag+format, what...)
+}
+
+func (this LogWrap) Debugf(format string, what ...interface{}) {
+	this.Logger.Debugf(this.Tag+format, what...)
+}
+
+func (this LogWrap) Infof(format string, what ...interface{}) {
+	this.Logger.Infof(this.Tag+format, what...)
+}
+
+func (this LogWrap) Warnf(format string, what ...interface{}) {
+	this.Logger.Warnf(this.Tag+format, what...)
+}
+
+func (this LogWrap) Errorf(format string, what ...interface{}) {
+	this.Logger.Errorf(this.Tag+format, what...)
+}
+
+func (this LogWrap) Fatalf(format string, what ...interface{}) {
+	this.Logger.Fatalf(this.Tag+format, what...)
 }
