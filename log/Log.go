@@ -253,6 +253,7 @@ func ParseLevel(name string, optional LogLevel) LogLevel {
 }
 
 type ILogger interface {
+	IsActive(LogLevel) bool
 	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
@@ -305,8 +306,9 @@ func (this *Logger) Namespace() string {
 	return this.tag
 }
 
-func (this *Logger) SetCallerAt(depth int) {
+func (this *Logger) SetCallerAt(depth int) *Logger {
 	this.calldepth = depth
+	return this
 }
 
 func (this *Logger) CallerAt(depth int) *Logger {
@@ -445,33 +447,49 @@ func (this *Logger) Fatal(a ...interface{}) {
 	this.log(FATAL, a...)
 }
 
-type LogWrap struct {
-	Logger Logger
+type Wrap struct {
+	Logger ILogger
 	Tag    string
 }
 
-var _ ILogger = LogWrap{}
+var _ ILogger = Wrap{}
 
-func (this LogWrap) Tracef(format string, what ...interface{}) {
-	this.Logger.Tracef(this.Tag+format, what...)
+func (this Wrap) IsActive(level LogLevel) bool {
+	return this.Logger.IsActive(level)
 }
 
-func (this LogWrap) Debugf(format string, what ...interface{}) {
-	this.Logger.Debugf(this.Tag+format, what...)
+func (this Wrap) Tracef(format string, what ...interface{}) {
+	if this.IsActive(TRACE) {
+		this.Logger.Tracef(this.Tag+format, what...)
+	}
 }
 
-func (this LogWrap) Infof(format string, what ...interface{}) {
-	this.Logger.Infof(this.Tag+format, what...)
+func (this Wrap) Debugf(format string, what ...interface{}) {
+	if this.IsActive(DEBUG) {
+		this.Logger.Debugf(this.Tag+format, what...)
+	}
 }
 
-func (this LogWrap) Warnf(format string, what ...interface{}) {
-	this.Logger.Warnf(this.Tag+format, what...)
+func (this Wrap) Infof(format string, what ...interface{}) {
+	if this.IsActive(INFO) {
+		this.Logger.Infof(this.Tag+format, what...)
+	}
 }
 
-func (this LogWrap) Errorf(format string, what ...interface{}) {
-	this.Logger.Errorf(this.Tag+format, what...)
+func (this Wrap) Warnf(format string, what ...interface{}) {
+	if this.IsActive(WARN) {
+		this.Logger.Warnf(this.Tag+format, what...)
+	}
 }
 
-func (this LogWrap) Fatalf(format string, what ...interface{}) {
-	this.Logger.Fatalf(this.Tag+format, what...)
+func (this Wrap) Errorf(format string, what ...interface{}) {
+	if this.IsActive(ERROR) {
+		this.Logger.Errorf(this.Tag+format, what...)
+	}
+}
+
+func (this Wrap) Fatalf(format string, what ...interface{}) {
+	if this.IsActive(FATAL) {
+		this.Logger.Fatalf(this.Tag+format, what...)
+	}
 }
