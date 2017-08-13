@@ -47,7 +47,6 @@ func create(msg string, cause error) *Fault {
 
 func format(template string, args ...interface{}) string {
 	if len(args) > 0 {
-		fmt.Println("WTF", len(args))
 		return fmt.Sprintf(template, args...)
 	} else {
 		return template
