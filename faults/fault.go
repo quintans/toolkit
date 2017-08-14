@@ -204,3 +204,23 @@ func Has(err error, test error) bool {
 		return err == test
 	}
 }
+
+type Errors []error
+
+func (errs Errors) Add(e error) {
+	errs = append(errs, e)
+}
+
+func (errs Errors) Error() string {
+	var buf bytes.Buffer
+	for _, err := range errs {
+		var s = err.Error()
+		if s != "" {
+			if buf.Len() > 0 {
+				buf.WriteString("\n    ")
+			}
+			buf.WriteString(s)
+		}
+	}
+	return buf.String()
+}
