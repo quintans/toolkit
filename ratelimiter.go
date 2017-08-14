@@ -21,24 +21,16 @@ var _ Rate = &RateLimiter{}
 // }
 type RateLimiter struct {
 	sync.Mutex
-	nextTake   time.Time
-	perTake    int64
-	burst      int64
-	burstCount int64
+	nextTake time.Time
+	perTake  int64
 }
 
 // NewRateLimiter creates an instance of RateLimiter
 // rate sets the number of takes that can occur per second
 func NewRateLimiter(rate int64) *RateLimiter {
 	return &RateLimiter{
-		perTake:    int64(time.Second) / rate,
-		burstCount: 1,
+		perTake: int64(time.Second) / rate,
 	}
-}
-
-// SetBurst sets the number of takes that can occur before applying the rate limit
-func (rl *RateLimiter) SetBurst(burst int64) {
-	rl.burst = burst
 }
 
 // TakeN enforces the rate limit.
@@ -58,16 +50,8 @@ func (rl *RateLimiter) TakeN(amount int64) time.Duration {
 	var now = time.Now()
 	var t time.Duration
 	if now.Before(rl.nextTake) {
-		if rl.burstCount < rl.burst {
-			rl.burstCount++
-			rl.nextTake = rl.nextTake.Add(time.Duration(rl.perTake * amount))
-			return t
-		} else {
-			t = rl.nextTake.Sub(now)
-			time.Sleep(t)
-		}
-	} else {
-		rl.burstCount = 1
+		t = rl.nextTake.Sub(now)
+		time.Sleep(t)
 	}
 	rl.nextTake = time.Now().Add(time.Duration(rl.perTake * amount))
 	return t
