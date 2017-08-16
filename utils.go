@@ -1,7 +1,6 @@
 package toolkit
 
 import (
-	"crypto/rand"
 	"fmt"
 	"reflect"
 	"time"
@@ -109,12 +108,6 @@ func ToString(v interface{}) string {
 			return fmt.Sprint(x)
 		}
 	}
-}
-
-func NewUUID() []byte {
-	var b = make([]byte, 16)
-	rand.Read(b)
-	return b
 }
 
 // LazyString enable us to use a function in fmt.(S)Printf
