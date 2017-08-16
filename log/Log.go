@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 type Worker struct {
@@ -222,6 +224,17 @@ type LogLevel int
 
 var logLevels = [...]string{"ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "NONE"}
 
+var logLevelColors = [...]func(a ...interface{}) string{
+	nil,
+	nil, // TRACE
+	color.New(color.FgMagenta).SprintFunc(),  // DEBUG
+	color.New(color.FgCyan).SprintFunc(),     // INFO
+	color.New(color.FgHiYellow).SprintFunc(), // WARN
+	color.New(color.FgHiRed).SprintFunc(),    // ERROR
+	color.New(color.FgHiRed).SprintFunc(),    // FATAL
+	nil,
+}
+
 func (this LogLevel) String() string {
 	var level = int(this)
 	if level >= 0 && level <= len(logLevels) {
@@ -333,8 +346,15 @@ func (this *Logger) logStamp(level LogLevel) string {
 		}
 		// left padding level
 		var s = level.String()
-		s = strings.Repeat(" ", 5-len(s)) + s
-		result.WriteString(s)
+		/*
+			s = strings.Repeat(" ", 5-len(s)) + s
+			result.WriteString(s)
+		*/
+		var colorFunc = logLevelColors[level]
+		if colorFunc != nil {
+			s = colorFunc(s)
+		}
+		result.WriteString(fmt.Sprintf("%6s", s))
 	}
 
 	if wrk.showCaller {
