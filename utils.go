@@ -116,3 +116,17 @@ func NewUUID() []byte {
 	rand.Read(b)
 	return b
 }
+
+// LazyString enable us to use a function in fmt.(S)Printf
+// eg:
+// fmt.Printf(
+//     "Hello %s",
+//     LazyString(func() string {
+//     return "world!"
+//     }),
+// )
+type LazyString func() string
+
+func (ls LazyString) String() string {
+	return ls()
+}
