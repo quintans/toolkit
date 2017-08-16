@@ -24,17 +24,23 @@ const (
 	HALFOPEN
 )
 
-type Config struct {
-	Name         string
-	Timeout      time.Duration
-	Maxfailures  int //consecutive failures
-	ResetTimeout time.Duration
+type Metrics interface {
+	IncSuccess()
+	Sucess() uint64
+	IncFailure()
+	Data() Stats
+	Clear() Stats
 }
 
 type Stats struct {
-	Successes int64
-	Fails     int64
-	Begin     time.Time
+	Successes uint64
+	Fails     uint64
+}
+
+type Config struct {
+	Timeout      time.Duration
+	Maxfailures  int //consecutive failures
+	ResetTimeout time.Duration
 }
 
 type CircuitBreaker struct {
@@ -46,14 +52,13 @@ type CircuitBreaker struct {
 	failures  int
 	state     EState
 	openUntil time.Time
-	stats     Stats
+	metrics   Metrics
 }
 
 func New(cfg Config) *CircuitBreaker {
 	var cb = &CircuitBreaker{
 		state: CLOSE,
 	}
-	cb.stats.Begin = time.Now()
 
 	var defaultConfig = Config{
 		Maxfailures:  5,
@@ -115,7 +120,9 @@ func (cb *CircuitBreaker) fail() {
 
 	var changed = false
 
-	cb.stats.Fails++
+	if cb.metrics != nil {
+		cb.metrics.IncFailure()
+	}
 	if cb.state == CLOSE {
 		cb.failures++
 		if cb.failures >= cb.Maxfailures {
@@ -141,8 +148,9 @@ func (cb *CircuitBreaker) reset() {
 	var changed = cb.state != CLOSE
 	cb.state = CLOSE
 	cb.failures = 0
-	cb.stats.Successes++
-
+	if cb.metrics != nil {
+		cb.metrics.IncSuccess()
+	}
 	cb.Unlock()
 
 	if cb.OnChange != nil && changed {
@@ -169,6 +177,17 @@ func (cb *CircuitBreaker) State() EState {
 func (cb *CircuitBreaker) Stats() Stats {
 	cb.RLock()
 	defer cb.RUnlock()
+	if cb.metrics != nil {
+		return cb.metrics.Data()
+	}
+	return Stats{}
+}
 
-	return cb.stats
+func (cb *CircuitBreaker) ClearStats() Stats {
+	cb.RLock()
+	defer cb.RUnlock()
+	if cb.metrics != nil {
+		return cb.metrics.Clear()
+	}
+	return Stats{}
 }
