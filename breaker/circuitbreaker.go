@@ -26,15 +26,12 @@ const (
 
 type Metrics interface {
 	IncSuccess()
-	Sucess() uint64
 	IncFailure()
-	Data() Stats
-	Clear() Stats
 }
 
 type Stats struct {
-	Successes uint64
-	Fails     uint64
+	Successes uint32
+	Fails     uint32
 }
 
 type Config struct {
@@ -174,20 +171,14 @@ func (cb *CircuitBreaker) State() EState {
 
 }
 
-func (cb *CircuitBreaker) Stats() Stats {
-	cb.RLock()
-	defer cb.RUnlock()
-	if cb.metrics != nil {
-		return cb.metrics.Data()
-	}
-	return Stats{}
+func (cb *CircuitBreaker) SetMetrics(metrics Metrics) {
+	cb.Lock()
+	cb.metrics = metrics
+	cb.Unlock()
 }
 
-func (cb *CircuitBreaker) ClearStats() Stats {
+func (cb *CircuitBreaker) Metrics() Metrics {
 	cb.RLock()
 	defer cb.RUnlock()
-	if cb.metrics != nil {
-		return cb.metrics.Clear()
-	}
-	return Stats{}
+	return cb.metrics
 }
