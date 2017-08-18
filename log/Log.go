@@ -228,7 +228,7 @@ var logLevelColors = [...]func(a ...interface{}) string{
 	nil,
 	nil, // TRACE
 	color.New(color.FgMagenta).SprintFunc(),  // DEBUG
-	color.New(color.FgCyan).SprintFunc(),     // INFO
+	color.New(color.FgHiCyan).SprintFunc(),   // INFO
 	color.New(color.FgHiYellow).SprintFunc(), // WARN
 	color.New(color.FgHiRed).SprintFunc(),    // ERROR
 	color.New(color.FgHiRed).SprintFunc(),    // FATAL
@@ -267,6 +267,7 @@ func ParseLevel(name string, optional LogLevel) LogLevel {
 
 type ILogger interface {
 	IsActive(LogLevel) bool
+	CallerAt(depth int) ILogger
 	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
@@ -324,7 +325,7 @@ func (this *Logger) SetCallerAt(depth int) *Logger {
 	return this
 }
 
-func (this *Logger) CallerAt(depth int) *Logger {
+func (this *Logger) CallerAt(depth int) ILogger {
 	// creates a temporary logger
 	tmp := LoggerFor(this.tag)
 	tmp.calldepth = depth
@@ -346,15 +347,13 @@ func (this *Logger) logStamp(level LogLevel) string {
 		}
 		// left padding level
 		var s = level.String()
-		/*
-			s = strings.Repeat(" ", 5-len(s)) + s
-			result.WriteString(s)
-		*/
+		s = strings.Repeat(" ", 5-len(s)) + s
+
 		var colorFunc = logLevelColors[level]
 		if colorFunc != nil {
 			s = colorFunc(s)
 		}
-		result.WriteString(fmt.Sprintf("%6s", s))
+		result.WriteString(s)
 	}
 
 	if wrk.showCaller {
@@ -474,42 +473,54 @@ type Wrap struct {
 
 var _ ILogger = Wrap{}
 
+func (this Wrap) tag(format string) string {
+	if this.Tag != "" {
+		return this.Tag + " " + format
+	} else {
+		return format
+	}
+}
+
 func (this Wrap) IsActive(level LogLevel) bool {
 	return this.Logger.IsActive(level)
 }
 
 func (this Wrap) Tracef(format string, what ...interface{}) {
 	if this.IsActive(TRACE) {
-		this.Logger.Tracef(this.Tag+format, what...)
+		this.Logger.Tracef(this.tag(format), what...)
 	}
 }
 
 func (this Wrap) Debugf(format string, what ...interface{}) {
 	if this.IsActive(DEBUG) {
-		this.Logger.Debugf(this.Tag+format, what...)
+		this.Logger.Debugf(this.tag(format), what...)
 	}
 }
 
 func (this Wrap) Infof(format string, what ...interface{}) {
 	if this.IsActive(INFO) {
-		this.Logger.Infof(this.Tag+format, what...)
+		this.Logger.Infof(this.tag(format), what...)
 	}
 }
 
 func (this Wrap) Warnf(format string, what ...interface{}) {
 	if this.IsActive(WARN) {
-		this.Logger.Warnf(this.Tag+format, what...)
+		this.Logger.Warnf(this.tag(format), what...)
 	}
 }
 
 func (this Wrap) Errorf(format string, what ...interface{}) {
 	if this.IsActive(ERROR) {
-		this.Logger.Errorf(this.Tag+format, what...)
+		this.Logger.Errorf(this.tag(format), what...)
 	}
 }
 
 func (this Wrap) Fatalf(format string, what ...interface{}) {
 	if this.IsActive(FATAL) {
-		this.Logger.Fatalf(this.Tag+format, what...)
+		this.Logger.Fatalf(this.tag(format), what...)
 	}
+}
+
+func (this Wrap) CallerAt(depth int) ILogger {
+	return this.Logger.CallerAt(depth)
 }
