@@ -17,8 +17,7 @@ func NewTicker(duration time.Duration, hnd func(time.Time)) *Ticker {
 
 func NewDelayedTicker(delay time.Duration, duration time.Duration, hnd func(time.Time)) *Ticker {
 	var tck = &Ticker{
-		stop:   make(chan struct{}, 1),
-		ticker: time.NewTicker(duration),
+		stop: make(chan struct{}, 1),
 	}
 
 	go func() {
@@ -27,6 +26,7 @@ func NewDelayedTicker(delay time.Duration, duration time.Duration, hnd func(time
 		}
 		hnd(time.Now())
 
+		tck.ticker = time.NewTicker(duration)
 		for {
 			select {
 			case <-tck.stop:
@@ -43,6 +43,5 @@ func NewDelayedTicker(delay time.Duration, duration time.Duration, hnd func(time
 func (tck *Ticker) Stop() {
 	tck.once.Do(func() {
 		close(tck.stop)
-		tck.ticker.Stop()
 	})
 }
