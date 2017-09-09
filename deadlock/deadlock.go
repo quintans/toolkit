@@ -74,12 +74,13 @@ func (m *RWMutex) Unlock() {
 }
 
 func (m *RWMutex) RLock() {
-	lock(m.mu.RLock, &m.stack)
+	//lock(m.mu.RLock, &m.stack)
+	m.mu.RLock()
 }
 
 func (m *RWMutex) RUnlock() {
 	m.mu.RUnlock()
-	(&m.stack).callers = nil
+	//(&m.stack).callers = nil
 }
 
 func printStackTrace(callers []uintptr) {
