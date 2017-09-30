@@ -522,5 +522,9 @@ func (this Wrap) Fatalf(format string, what ...interface{}) {
 }
 
 func (this Wrap) CallerAt(depth int) ILogger {
-	return this.Logger != nil && this.Logger.CallerAt(depth)
+	if this.Logger != nil {
+		return this.Logger.CallerAt(depth)
+	} else {
+		return this
+	}
 }
