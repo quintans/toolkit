@@ -482,7 +482,7 @@ func (this Wrap) tag(format string) string {
 }
 
 func (this Wrap) IsActive(level LogLevel) bool {
-	return this.Logger.IsActive(level)
+	return this.Logger != nil && this.Logger.IsActive(level)
 }
 
 func (this Wrap) Tracef(format string, what ...interface{}) {
@@ -522,5 +522,5 @@ func (this Wrap) Fatalf(format string, what ...interface{}) {
 }
 
 func (this Wrap) CallerAt(depth int) ILogger {
-	return this.Logger.CallerAt(depth)
+	return this.Logger != nil && this.Logger.CallerAt(depth)
 }
