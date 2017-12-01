@@ -140,7 +140,7 @@ func TestFilePushPop3(t *testing.T) {
 }
 
 // TestBigPushPop1 will make some data be stored in memory and other be stored in file
-func TestBigPushPop1(t *testing.T) {
+func TestBigPushPop(t *testing.T) {
 	fifo, err := collections.NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
 	if err == nil {
 		for _, m := range messages {
@@ -154,22 +154,18 @@ func TestBigPushPop1(t *testing.T) {
 		}
 
 		data := fifo.Peek()
-		if messages[0] != data.(string) {
-			t.Fatalf("Peeked data does not match! Failed comparing %s\n", messages[0])
+		if data == nil || messages[0] != data.(string) {
+			t.Fatalf("Peeked data does not match! Failed comparing %s to %s\n", data, messages[0])
 		}
 		if fifo.Size() != int64(len(messages)) {
 			t.Fatalf("Wrong fifo size after peek. Expected %v got %v.\n", fifo.Size(), len(messages))
 		}
 
 		for _, m := range messages {
-			data, err = fifo.Pop()
-			if err != nil {
-				t.Fatal(err)
-			} else {
-				if m != data.(string) {
-					t.Errorf("Pop data does not match! Failed comparing %s\n", m)
-					return
-				}
+			data = <-fifo.Popper()
+			if m != data.(string) {
+				t.Errorf("Pop data does not match! Failed comparing %s\n", m)
+				return
 			}
 		}
 		if fifo.Size() != int64(0) {
@@ -197,10 +193,7 @@ func TestBigPushPopOrWait(t *testing.T) {
 			}
 		}()
 
-		data, err := fifo.PopOrWait()
-		if err != nil {
-			t.Error(err)
-		}
+		data := <-fifo.Popper()
 		if msg != data.(string) {
 			t.Fatalf("Wrong data. Expected %s got %s.\n", msg, data.(string))
 		}

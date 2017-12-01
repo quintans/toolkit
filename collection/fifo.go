@@ -229,33 +229,31 @@ func (this *FileFifo) Size() int64 {
 	return this.headIdx - this.tailIdx
 }
 
-type item struct {
-	next  *item
-	value interface{}
-}
-
 type BigFifo struct {
 	fileFifo *FileFifo
-	c        *sync.Cond
+	sync.RWMutex
 
-	head      *item
-	tail      *item
-	size      int
-	threshold int
-	dir       string
-	codec     tk.Codec
-	dataType  reflect.Type
+	buffer   chan interface{}
+	header   chan interface{}
+	quit     chan struct{}
+	head     interface{}
+	fileHead interface{}
+
+	dir      string
+	codec    tk.Codec
+	dataType reflect.Type
 }
 
 // NewBigFifo creates a FIFO that after a certain number of elements will use disk files to store the elements.
 //
-// threshold: number after which will store to disk.
+// threshold: buffer size. number after which will store to disk.
 // dir: directory where the files will be created.
 // codec: codec to convert between []byte and interface{}
+// zero: zero data type
 func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, zero interface{}) (*BigFifo, error) {
 	// validate
-	if threshold < 1 {
-		return nil, errors.New("validate is less than 1")
+	if threshold < 2 {
+		return nil, errors.New("threshold must be greater than than 1")
 	}
 	if len(dir) == 0 {
 		return nil, errors.New("dir is empty")
@@ -273,7 +271,9 @@ func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, zero i
 	if err != nil {
 		return nil, err
 	}
-	this.threshold = threshold
+	this.quit = make(chan struct{})
+	this.header = make(chan interface{})
+	this.buffer = make(chan interface{}, threshold-1)
 	this.codec = codec
 
 	t := reflect.TypeOf(zero)
@@ -284,69 +284,37 @@ func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, zero i
 		this.dataType = t
 	}
 
-	this.c = sync.NewCond(&sync.Mutex{})
+	// a way to listen for the comsuption of the buffer
+	go func() {
+		for data := range this.buffer {
+			this.Lock()
+			this.head = data
+			this.Unlock()
+
+			select {
+			case this.header <- data:
+			case <-this.quit:
+			}
+			// wake up the reading from file to the buffer
+			this.Lock()
+		out:
+			for this.fileHead != nil {
+				select {
+				case this.buffer <- this.fileHead:
+					this.fileHead, _ = this.popFromFile()
+				default:
+					break out
+				}
+			}
+			this.Unlock()
+		}
+
+	}()
+
 	return this, nil
 }
 
-func (this *BigFifo) Size() int64 {
-	this.c.L.Lock()
-	defer this.c.L.Unlock()
-
-	return int64(this.size) + this.fileFifo.Size()
-}
-
-func (this *BigFifo) Clear() error {
-	this.c.L.Lock()
-	defer this.c.L.Unlock()
-
-	this.head = nil
-	this.tail = nil
-	this.size = 0
-	return this.fileFifo.Clear()
-}
-
-func (this *BigFifo) push(value interface{}) {
-	e := &item{value: value}
-	if this.head != nil {
-		this.head.next = e
-	}
-	this.head = e
-
-	if this.tail == nil {
-		this.tail = e
-	}
-
-	this.size++
-}
-
-func (this *BigFifo) Push(value interface{}) error {
-	this.c.L.Lock()
-	defer func() {
-		this.c.L.Unlock()
-		this.c.Signal()
-	}()
-
-	var err error
-	if this.size < this.threshold {
-		// still in the memory zone
-		this.push(value)
-	} else {
-		// use disk, since the threshold was reached.
-		data, err := this.codec.Encode(value)
-		if err != nil {
-			return err
-		}
-		err = this.fileFifo.Push(data)
-	}
-
-	return err
-}
-
-func (this *BigFifo) pop() (interface{}, error) {
-	value := this.tail.value
-	this.tail = this.tail.next
-	this.size--
-
+func (this *BigFifo) popFromFile() (interface{}, error) {
 	// if there is data stored in file, get to memory
 	data, err := this.fileFifo.Pop()
 	if err != nil {
@@ -361,50 +329,88 @@ func (this *BigFifo) pop() (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		// push to memory
-		this.push(v.Elem().Interface())
+		return v.Elem().Interface(), nil
 	}
 
-	return value, nil
+	return nil, nil
 }
 
-// PopOrWait returns the tail element removing it.
-// If no element is available it will wait until one is added.
-func (this *BigFifo) PopOrWait() (interface{}, error) {
-	this.c.L.Lock()
-	defer this.c.L.Unlock()
+func (this *BigFifo) Size() int64 {
+	this.RLock()
+	defer this.RUnlock()
 
-	// Pop will allways be executed from memory
-	//If the queue is empty. will wait for an element
-	for this.tail == nil {
-		this.c.Wait()
+	var c int64
+	if this.fileHead != nil {
+		c = 1
 	}
 
-	return this.pop()
+	return int64(len(this.buffer)) + c + this.fileFifo.Size()
 }
 
-// Pop returns the tail element removing it.
-func (this *BigFifo) Pop() (interface{}, error) {
-	this.c.L.Lock()
-	defer this.c.L.Unlock()
+func (this *BigFifo) Clear() error {
+	this.Lock()
+	defer this.Unlock()
 
-	// Pop will allways be executed from memory
-	if this.tail == nil {
-		return nil, nil
-	} else {
-		return this.pop()
+	return this.fileFifo.Clear()
+}
+
+func (this *BigFifo) Close() error {
+	var err = this.Close()
+	close(this.buffer)
+	close(this.quit)
+	return err
+}
+
+func (this *BigFifo) Push(value interface{}) error {
+
+	var err error
+	select {
+	case this.buffer <- value:
+		// still has space int the buffer
+		if this.head == nil {
+			this.Lock()
+			// double check
+			if this.head == nil {
+				this.head = value
+			}
+			this.Unlock()
+		}
+
+	default:
+		this.Lock()
+		// we only care for the first time that the file value is set
+		if this.fileHead == nil {
+			this.fileHead = value
+		} else {
+			// use disk, since the threshold was reached.
+			data, err := this.codec.Encode(value)
+			if err != nil {
+				return err
+			}
+			err = this.fileFifo.Push(data)
+		}
+
+		this.Unlock()
 	}
+
+	return err
 }
 
-// Peek returns the tail element without removing it.
+// Popper returns the channel element.
+func (this *BigFifo) Popper() <-chan interface{} {
+	return this.header
+}
+
+// Peek returns the next element. When we consume it it might be different
 func (this *BigFifo) Peek() interface{} {
-	this.c.L.Lock()
-	defer this.c.L.Unlock()
+	this.RLock()
+	defer this.RUnlock()
+	return this.head
+}
 
-	if this.tail != nil {
-		return this.tail.value
-	}
-	return nil
+type item struct {
+	next  *item
+	value interface{}
 }
 
 // the Idea is to have a FIFO with a windowing (circular) feature.
