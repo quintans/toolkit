@@ -23,7 +23,7 @@ func compare(a, b []interface{}) bool {
 }
 
 func greater(a, b interface{}) bool {
-	return a.(Long) > b.(Long)
+	return a.(Long) < b.(Long)
 }
 
 var unsortedArray = []interface{}{

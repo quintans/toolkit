@@ -5,9 +5,10 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	tk "github.com/quintans/toolkit"
 	"strconv"
 	"time"
+
+	tk "github.com/quintans/toolkit"
 )
 
 const json_null = "null"
@@ -38,15 +39,6 @@ func (this Any) Value() (driver.Value, error) {
 
 func (this Any) IsNil() bool {
 	return this.Val == nil
-}
-
-// LAZY STRING
-type LazyString struct {
-	Str func() string
-}
-
-func (this LazyString) String() string {
-	return this.String()
 }
 
 // STRING

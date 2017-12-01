@@ -123,9 +123,11 @@ func (this *ArrayList) AddAll(values Hasher) bool {
 }
 */
 
-func (this *ArrayList) Sort(less func(a, b int) bool) []interface{} {
+func (this *ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
 	tmp := this.Elements()
-	sort.Slice(tmp, less)
+	sort.Slice(tmp, func(x, y int) bool {
+		return less(tmp[x], tmp[y])
+	})
 	return tmp
 }
 

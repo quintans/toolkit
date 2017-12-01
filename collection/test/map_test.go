@@ -69,7 +69,7 @@ func TestHashMapIterator(t *testing.T) {
 	dic.Put(dics[2].Key, dics[2].Value)
 	dic.Put(dics[3].Key, dics[3].Value)
 
-	fmt.Println("========> Iterating throw ", dics)
+	fmt.Println("========> Iterating through ", dics)
 	for it := dic.Iterator(); it.HasNext(); {
 		fmt.Println(it.Next())
 	}

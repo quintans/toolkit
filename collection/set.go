@@ -104,14 +104,16 @@ func (this *HashSet) Delete(value interface{}) bool {
 	return ok
 }
 
-func (this *HashSet) Sort(less func(a, b int) bool) []interface{} {
+func (this *HashSet) Sort(less func(a, b interface{}) bool) []interface{} {
 	tmp := make([]interface{}, this.entries.Size())
 	i := 0
 	for it := this.entries.Iterator(); it.HasNext(); i++ {
 		tmp[i] = it.Next().Key
 	}
 
-	sort.Slice(tmp, less)
+	sort.Slice(tmp, func(x, y int) bool {
+		return less(tmp[x], tmp[y])
+	})
 
 	elems := make([]interface{}, len(tmp))
 	for k, v := range tmp {

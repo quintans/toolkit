@@ -185,7 +185,7 @@ func TestBigPushPop1(t *testing.T) {
 	}
 }
 
-func TestBigPushPop2(t *testing.T) {
+func TestBigPushPopOrWait(t *testing.T) {
 	fifo, err := collections.NewBigFifo(3, fifoDir, 1, tk.GobCodec{}, (*string)(nil))
 	if err == nil {
 		msg := "hello"

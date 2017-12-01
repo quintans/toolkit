@@ -1,5 +1,3 @@
-// DRAFT ONLY. THIS IS STILL IN DEVELOPEMENT. NO TESTS WHERE MADE
-
 package collections
 
 import (
@@ -238,7 +236,7 @@ type item struct {
 
 type BigFifo struct {
 	fileFifo *FileFifo
-	cond     *sync.Cond
+	c        *sync.Cond
 
 	head      *item
 	tail      *item
@@ -254,8 +252,6 @@ type BigFifo struct {
 // threshold: number after which will store to disk.
 // dir: directory where the files will be created.
 // codec: codec to convert between []byte and interface{}
-//
-// BigFifo is not safe for concurrent access.
 func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, zero interface{}) (*BigFifo, error) {
 	// validate
 	if threshold < 1 {
@@ -288,20 +284,20 @@ func NewBigFifo(threshold int, dir string, fileCap int64, codec tk.Codec, zero i
 		this.dataType = t
 	}
 
-	this.cond = sync.NewCond(&sync.Mutex{})
+	this.c = sync.NewCond(&sync.Mutex{})
 	return this, nil
 }
 
 func (this *BigFifo) Size() int64 {
-	this.cond.L.Lock()
-	defer this.cond.L.Unlock()
+	this.c.L.Lock()
+	defer this.c.L.Unlock()
 
 	return int64(this.size) + this.fileFifo.Size()
 }
 
 func (this *BigFifo) Clear() error {
-	this.cond.L.Lock()
-	defer this.cond.L.Unlock()
+	this.c.L.Lock()
+	defer this.c.L.Unlock()
 
 	this.head = nil
 	this.tail = nil
@@ -324,10 +320,10 @@ func (this *BigFifo) push(value interface{}) {
 }
 
 func (this *BigFifo) Push(value interface{}) error {
-	this.cond.L.Lock()
+	this.c.L.Lock()
 	defer func() {
-		this.cond.L.Unlock()
-		this.cond.Signal()
+		this.c.L.Unlock()
+		this.c.Signal()
 	}()
 
 	var err error
@@ -375,13 +371,13 @@ func (this *BigFifo) pop() (interface{}, error) {
 // PopOrWait returns the tail element removing it.
 // If no element is available it will wait until one is added.
 func (this *BigFifo) PopOrWait() (interface{}, error) {
-	this.cond.L.Lock()
-	defer this.cond.L.Unlock()
+	this.c.L.Lock()
+	defer this.c.L.Unlock()
 
 	// Pop will allways be executed from memory
 	//If the queue is empty. will wait for an element
 	for this.tail == nil {
-		this.cond.Wait()
+		this.c.Wait()
 	}
 
 	return this.pop()
@@ -389,8 +385,8 @@ func (this *BigFifo) PopOrWait() (interface{}, error) {
 
 // Pop returns the tail element removing it.
 func (this *BigFifo) Pop() (interface{}, error) {
-	this.cond.L.Lock()
-	defer this.cond.L.Unlock()
+	this.c.L.Lock()
+	defer this.c.L.Unlock()
 
 	// Pop will allways be executed from memory
 	if this.tail == nil {
@@ -400,10 +396,10 @@ func (this *BigFifo) Pop() (interface{}, error) {
 	}
 }
 
-// Pop returns the tail element without removing it.
+// Peek returns the tail element without removing it.
 func (this *BigFifo) Peek() interface{} {
-	this.cond.L.Lock()
-	defer this.cond.L.Unlock()
+	this.c.L.Lock()
+	defer this.c.L.Unlock()
 
 	if this.tail != nil {
 		return this.tail.value
