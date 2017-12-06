@@ -1,7 +1,9 @@
 package toolkit
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
 	"unicode"
@@ -122,4 +124,22 @@ type LazyString func() string
 
 func (ls LazyString) String() string {
 	return ls()
+}
+
+// LoadConfiguration configuration from a json file
+// config is a pointer to a configuration variable
+// file is the json file location
+func LoadConfiguration(config interface{}, file string, mandatory bool) error {
+	if mandatory {
+		if _, err := os.Stat(file); os.IsNotExist(err) {
+			panic(err)
+		}
+	}
+	configFile, err := os.Open(file)
+	defer configFile.Close()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	jsonParser := json.NewDecoder(configFile)
+	return jsonParser.Decode(config)
 }

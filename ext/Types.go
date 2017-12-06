@@ -3,6 +3,7 @@ package ext
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -324,4 +325,31 @@ func (this Date) String() string {
 		t.Hour(),
 		t.Minute(),
 		t.Second())
+}
+
+// Duration gives us control to the generated/parsed JSON
+type Duration time.Duration
+
+func (d *Duration) UnmarshalJSON(b []byte) (err error) {
+	if b[0] == '"' {
+		sd := string(b[1 : len(b)-1])
+		var x time.Duration
+		x, err = time.ParseDuration(sd)
+		*d = Duration(x)
+		return
+	}
+
+	var id int64
+	id, err = json.Number(string(b)).Int64()
+	*d = Duration(time.Duration(id))
+
+	return
+}
+
+func (d Duration) MarshalJSON() (b []byte, err error) {
+	return []byte(fmt.Sprintf(`"%s"`, time.Duration(d).String())), nil
+}
+
+func (d Duration) String() string {
+	return time.Duration(d).String()
 }
