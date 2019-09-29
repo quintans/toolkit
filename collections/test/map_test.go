@@ -99,7 +99,7 @@ func TestLinkedHashMapIterator(t *testing.T) {
 	set := []KeyValue{dics[0], dics[2], dics[3]}
 	for k, v := range dic.Elements() {
 		if !v.Key.Equals(set[k].Key) {
-			t.Errorf("Value %s at position %s does not match with %s after delete\n", v.Key, k, dics[k].Key)
+			t.Errorf("Value %s at position %d does not match with %s after delete\n", v.Key, k, dics[k].Key)
 		}
 	}
 
