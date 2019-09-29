@@ -386,14 +386,12 @@ func (this *Logger) IsActive(level LogLevel) bool {
 	return level >= this.Level()
 }
 
-type FuncStringer func() string
-
 func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 	if this.IsActive(level) {
 		str := this.logStamp(level)
 		if len(what) > 0 {
 			for k, v := range what {
-				if f, ok := v.(FuncStringer); ok {
+				if f, ok := v.(func() string); ok {
 					what[k] = f()
 				}
 			}

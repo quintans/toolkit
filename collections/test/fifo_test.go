@@ -5,7 +5,7 @@ import (
 	"time"
 
 	tk "github.com/quintans/toolkit"
-	"github.com/quintans/toolkit/collection"
+	"github.com/quintans/toolkit/collections"
 )
 
 const (
