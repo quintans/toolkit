@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	. "github.com/quintans/toolkit"
-	"github.com/quintans/toolkit/collection"
+	"github.com/quintans/toolkit/collections"
 	. "github.com/quintans/toolkit/ext"
 )
 

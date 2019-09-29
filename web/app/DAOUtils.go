@@ -6,7 +6,7 @@ import (
 	"github.com/quintans/goSQL/db"
 	"github.com/quintans/goSQL/dbx"
 	tk "github.com/quintans/toolkit"
-	coll "github.com/quintans/toolkit/collection"
+	coll "github.com/quintans/toolkit/collections"
 	. "github.com/quintans/toolkit/ext"
 	"github.com/quintans/toolkit/log"
 
@@ -91,9 +91,9 @@ func DeleteByIdAndVersion(DB db.IDb, table *db.Table, id int64, version int64) e
 
 	result, err := DB.Delete(table).
 		Where(
-		keyColumn.Matches(id),
-		versionColumn.Matches(version),
-	).
+			keyColumn.Matches(id),
+			versionColumn.Matches(version),
+		).
 		Execute()
 
 	if err != nil {
@@ -124,9 +124,9 @@ func SoftDeleteByIdAndVersion(DB db.IDb, table *db.Table, id int64, version int6
 		Set(deletion, tk.Milliseconds()).
 		Set(versionColumn, version+1).
 		Where(
-		keyColumn.Matches(id),
-		versionColumn.Matches(version),
-	).
+			keyColumn.Matches(id),
+			versionColumn.Matches(version),
+		).
 		Execute()
 
 	if err != nil {
