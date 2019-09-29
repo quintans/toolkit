@@ -226,7 +226,7 @@ var logLevels = [...]string{"ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "F
 
 var logLevelColors = [...]func(a ...interface{}) string{
 	nil,
-	nil, // TRACE
+	nil,                                      // TRACE
 	color.New(color.FgMagenta).SprintFunc(),  // DEBUG
 	color.New(color.FgHiCyan).SprintFunc(),   // INFO
 	color.New(color.FgHiYellow).SprintFunc(), // WARN
@@ -386,10 +386,17 @@ func (this *Logger) IsActive(level LogLevel) bool {
 	return level >= this.Level()
 }
 
+type FuncStringer func() string
+
 func (this *Logger) logf(level LogLevel, format string, what ...interface{}) {
 	if this.IsActive(level) {
 		str := this.logStamp(level)
 		if len(what) > 0 {
+			for k, v := range what {
+				if f, ok := v.(FuncStringer); ok {
+					what[k] = f()
+				}
+			}
 			str += fmt.Sprintf(format+"\n", what...)
 		} else {
 			str += format + "\n"

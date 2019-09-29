@@ -1,9 +1,7 @@
-package test
+package fsm
 
 import (
 	"testing"
-
-	"github.com/quintans/toolkit/fsm2"
 )
 
 // event
@@ -15,10 +13,10 @@ const (
 
 // states
 var (
-	green  = fsm2.NewState("GREEN")
-	yellow = fsm2.NewState("YELLOW")
-	red    = fsm2.NewState("RED")
-	bounce = fsm2.NewState("BOUNCE")
+	green  = NewState("GREEN")
+	yellow = NewState("YELLOW")
+	red    = NewState("RED")
+	bounce = NewState("BOUNCE")
 )
 
 func TestSimpleTransition(t *testing.T) {
@@ -26,8 +24,8 @@ func TestSimpleTransition(t *testing.T) {
 	green.AddTransition(TICK, yellow)
 	yellow.AddTransition(TICK, bounce)
 	bounce.AddTransition(BOING, red)
-	bounce.OnEvent = func(e *fsm2.Event) *fsm2.Event {
-		return fsm2.NewEvent(BOING, nil)
+	bounce.OnEvent = func(e *Event) *Event {
+		return NewEvent(BOING, nil)
 	}
 
 	red.AddTransition(TICK, green)
@@ -37,19 +35,19 @@ func TestSimpleTransition(t *testing.T) {
 		EnterCount int
 		EventCount int
 	}
-	red.OnEnter = func(e *fsm2.Event) {
+	red.OnEnter = func(e *Event) {
 		redState.EnterCount++
 	}
-	red.OnExit = func(e *fsm2.Event) {
+	red.OnExit = func(e *Event) {
 		redState.ExitCount++
 	}
-	red.OnEvent = func(e *fsm2.Event) *fsm2.Event {
+	red.OnEvent = func(e *Event) *Event {
 		redState.EventCount++
 		return nil
 	}
 
 	// Sate machine
-	sm := fsm2.NewStateMachine("SimpleTransition")
+	sm := NewStateMachine("SimpleTransition")
 	sm.AddState(green)
 	sm.AddState(yellow)
 	sm.AddState(red)
