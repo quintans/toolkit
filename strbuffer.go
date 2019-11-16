@@ -2,6 +2,8 @@ package toolkit
 
 import "bytes"
 
+import "fmt"
+
 type StrBuffer struct {
 	buffer bytes.Buffer
 	hash   int
@@ -14,6 +16,11 @@ func NewStrBuffer(str ...interface{}) *StrBuffer {
 	s := new(StrBuffer)
 	s.Add(str...)
 	return s
+}
+
+func (this *StrBuffer) Addf(template string, a ...interface{}) *StrBuffer {
+	this.Add(fmt.Sprintf(template, a...))
+	return this
 }
 
 func (this *StrBuffer) Add(a ...interface{}) *StrBuffer {
