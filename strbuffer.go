@@ -25,7 +25,7 @@ func (this *StrBuffer) Addf(template string, a ...interface{}) *StrBuffer {
 
 func (this *StrBuffer) Add(a ...interface{}) *StrBuffer {
 	for _, v := range a {
-		this.buffer.WriteString(ToString(v))
+		this.buffer.WriteString(fmt.Sprintf("%v", v))
 	}
 	return this
 }
