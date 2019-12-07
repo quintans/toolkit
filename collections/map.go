@@ -212,6 +212,10 @@ func (this *HashMap) Size() int {
 	return this.size
 }
 
+func (this *HashMap) Empty() bool {
+	return this.Size() == 0
+}
+
 func (this *HashMap) Elements() []*KeyValue {
 	data := make([]*KeyValue, this.size)
 	i := 0
@@ -345,6 +349,10 @@ func (this *LinkedHashMap) Clear() {
 
 func (this *LinkedHashMap) Size() int {
 	return this.entries.Size()
+}
+
+func (this *LinkedHashMap) Empty() bool {
+	return this.Size() == 0
 }
 
 func (this *LinkedHashMap) Get(key Hasher) (interface{}, bool) {

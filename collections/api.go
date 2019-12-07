@@ -11,6 +11,7 @@ type Collection interface {
 	Base
 
 	Size() int
+	Empty() bool
 	Clear()
 	Contains(value interface{}) bool
 	Delete(key interface{}) bool

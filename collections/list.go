@@ -97,6 +97,10 @@ func (this *ArrayList) Size() int {
 	return len(this.elements)
 }
 
+func (this *ArrayList) Empty() bool {
+	return this.Size() == 0
+}
+
 func (this *ArrayList) Get(pos int) interface{} {
 	return this.elements[pos]
 }

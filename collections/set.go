@@ -33,6 +33,10 @@ func (this *HashSet) Size() int {
 	return this.entries.Size()
 }
 
+func (this *HashSet) Empty() bool {
+	return this.Size() == 0
+}
+
 func (this *HashSet) Contains(value interface{}) bool {
 	hasher := value.(Hasher)
 	_, ok := this.entries.Get(hasher)
@@ -252,6 +256,10 @@ func (this *LinkedHashSet) HashCode() int {
 
 func (this *LinkedHashSet) Size() int {
 	return this.lhm.Size()
+}
+
+func (this *LinkedHashSet) Empty() bool {
+	return this.Size() == 0
 }
 
 func (this *LinkedHashSet) Contains(value interface{}) bool {
