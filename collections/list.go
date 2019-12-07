@@ -18,14 +18,15 @@ var _ IList = &ArrayList{}
 // check if it implements Base interface
 var _ Base = &ArrayList{}
 
-func NewArrayList() *ArrayList {
-	m := new(ArrayList)
-	m.Clear()
+func NewArrayList(elems ...interface{}) *ArrayList {
+	m := &ArrayList{
+		elements: elems,
+	}
 	return m
 }
 
 func (this *ArrayList) Clear() {
-	this.elements = make([]interface{}, 0)
+	this.elements = []interface{}{}
 }
 
 type ArrayListEnumerator struct {
@@ -74,9 +75,7 @@ func (this *ArrayList) Enumerator() Enumerator {
 }
 
 func (this *ArrayList) Elements() []interface{} {
-	data := make([]interface{}, len(this.elements), cap(this.elements))
-	copy(data, this.elements)
-	return data
+	return this.elements
 }
 
 func (this *ArrayList) AsSlice() interface{} {
@@ -128,7 +127,7 @@ func (this *ArrayList) AddAll(values Hasher) bool {
 */
 
 func (this *ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
-	tmp := this.Elements()
+	tmp := clone(this.elements)
 	sort.Slice(tmp, func(x, y int) bool {
 		return less(tmp[x], tmp[y])
 	})
@@ -197,7 +196,13 @@ func (this *ArrayList) String() string {
 }
 
 func (this *ArrayList) Clone() interface{} {
-	return &ArrayList{this.Elements()}
+	return &ArrayList{clone(this.elements)}
+}
+
+func clone(src []interface{}) []interface{} {
+	dest := make([]interface{}, len(src), cap(src))
+	copy(dest, src)
+	return dest
 }
 
 func (this *ArrayList) Equals(e interface{}) bool {
