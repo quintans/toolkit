@@ -97,7 +97,8 @@ func TestLinkedHashMapIterator(t *testing.T) {
 	dic.Delete(dics[1].Key)
 
 	set := []KeyValue{dics[0], dics[2], dics[3]}
-	for k, v := range dic.Elements() {
+	elems := dic.Elements()
+	for k, v := range elems {
 		if !v.Key.Equals(set[k].Key) {
 			t.Errorf("Value %s at position %d does not match with %s after delete\n", v.Key, k, dics[k].Key)
 		}

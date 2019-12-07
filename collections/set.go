@@ -10,7 +10,7 @@ import (
 // == HashSet ==
 
 type HashSet struct {
-	entries Map
+	entries *HashMap
 }
 
 func NewHashSet() *HashSet {
@@ -83,11 +83,10 @@ func (this *HashSet) add(value Hasher) bool {
 	return !ok
 }
 
-func (this *HashSet) Add(data ...interface{}) bool {
+func (this *HashSet) Add(data ...Hasher) bool {
 	changed := false
 	for _, v := range data {
-		h := v.(Hasher)
-		if this.add(h) {
+		if this.add(v) {
 			changed = true
 		}
 	}
@@ -95,21 +94,21 @@ func (this *HashSet) Add(data ...interface{}) bool {
 }
 
 func (this *HashSet) Delete(value interface{}) bool {
-	h := value.(Hasher)
-	_, ok := this.entries.Get(h)
-	if ok {
-		this.entries.Delete(h)
+	h, ok := value.(Hasher)
+	if !ok {
+		return false
 	}
-
-	return ok
+	old := this.entries.Delete(h)
+	return old != nil
 }
 
 func (this *HashSet) Sort(less func(a, b interface{}) bool) []interface{} {
 	tmp := make([]interface{}, this.entries.Size())
 	i := 0
-	for it := this.entries.Iterator(); it.HasNext(); i++ {
-		tmp[i] = it.Next().Key
-	}
+	this.ForEach(func(e interface{}) {
+		tmp[i] = e
+		i++
+	})
 
 	sort.Slice(tmp, func(x, y int) bool {
 		return less(tmp[x], tmp[y])
@@ -126,10 +125,19 @@ func (this *HashSet) Sort(less func(a, b interface{}) bool) []interface{} {
 func (this *HashSet) Elements() []interface{} {
 	data := make([]interface{}, this.entries.Size())
 	i := 0
-	for it := this.entries.Iterator(); it.HasNext(); i++ {
-		data[i] = it.Next().Key
-	}
+	this.ForEach(func(e interface{}) {
+		data[i] = e
+		i++
+	})
 	return data
+}
+
+func (this *HashSet) ForEach(fn func(interface{})) {
+	for _, entry := range this.entries.table {
+		for ; entry != nil; entry = entry.next {
+			fn(entry.key)
+		}
+	}
 }
 
 func (this *HashSet) AsSlice() interface{} {
@@ -152,9 +160,9 @@ func (this *HashSet) AsSlice() interface{} {
 func (this *HashSet) String() string {
 	s := new(StrBuffer)
 	s.Add("[")
-	for it := this.entries.Iterator(); it.HasNext(); {
-		s.Add(it.Next().Key)
-	}
+	this.ForEach(func(v interface{}) {
+		s.Add(v)
+	})
 	s.Add("]")
 
 	return s.String()
@@ -162,9 +170,7 @@ func (this *HashSet) String() string {
 
 func (this *HashSet) Clone() interface{} {
 	x := NewHashSet()
-	if c, ok := this.entries.(Clonable); ok {
-		x.entries = c.Clone().(Map)
-	}
+	x.entries = this.entries.Clone().(*HashMap)
 	return x
 }
 
@@ -196,7 +202,7 @@ func (this *HashSet) HashCode() int {
 //== LinkedHashSet ==
 
 type LinkedHashSet struct {
-	HashSet
+	lhm *LinkedHashMap
 }
 
 // check if it implements Collection interface
@@ -212,9 +218,133 @@ func NewLinkedHashSet() *LinkedHashSet {
 }
 
 func (this *LinkedHashSet) Clear() {
-	this.entries = NewLinkedHashMap()
+	this.lhm = NewLinkedHashMap()
+}
+
+func (this *LinkedHashSet) String() string {
+	s := new(StrBuffer)
+	s.Add("[")
+	this.lhm.ForEach(func(kv *KeyValue) {
+		s.Add(kv.Key)
+	})
+	s.Add("]")
+
+	return s.String()
+}
+
+func (this *LinkedHashSet) Clone() interface{} {
+	x := NewLinkedHashSet()
+	x.lhm = this.lhm.Clone().(*LinkedHashMap)
+	return x
+}
+
+func (this *LinkedHashSet) Equals(e interface{}) bool {
+	switch t := e.(type) { //type switch
+	case *LinkedHashSet:
+		return this.lhm.Equals(t.lhm)
+	}
+	return false
 }
 
 func (this *LinkedHashSet) HashCode() int {
 	panic("LinkedHashSet.HashCode not implemented")
+}
+
+func (this *LinkedHashSet) Size() int {
+	return this.lhm.Size()
+}
+
+func (this *LinkedHashSet) Contains(value interface{}) bool {
+	hasher := value.(Hasher)
+	_, ok := this.lhm.Get(hasher)
+	return ok
+}
+
+// returns a function that in every call return the next value
+// if no value was retrived
+func (this *LinkedHashSet) Enumerator() Enumerator {
+	return &HashSetEnumerator{this.lhm.Iterator()}
+}
+
+// Add if it does not exists
+func (this *LinkedHashSet) add(value Hasher) bool {
+	_, ok := this.lhm.Get(value)
+	if !ok {
+		this.lhm.Put(value, struct{}{})
+	}
+
+	return !ok
+}
+
+func (this *LinkedHashSet) Add(data ...Hasher) bool {
+	changed := false
+	for _, v := range data {
+		if this.add(v) {
+			changed = true
+		}
+	}
+	return changed
+}
+
+func (this *LinkedHashSet) Delete(value interface{}) bool {
+	h, ok := value.(Hasher)
+	if !ok {
+		return false
+	}
+	old := this.lhm.Delete(h)
+	return old != nil
+}
+
+func (this *LinkedHashSet) Sort(less func(a, b interface{}) bool) []interface{} {
+	tmp := make([]interface{}, this.lhm.Size())
+	i := 0
+	this.ForEach(func(e interface{}) {
+		tmp[i] = e
+		i++
+	})
+
+	sort.Slice(tmp, func(x, y int) bool {
+		return less(tmp[x], tmp[y])
+	})
+
+	elems := make([]interface{}, len(tmp))
+	for k, v := range tmp {
+		elems[k] = v.(interface{})
+	}
+
+	return elems
+}
+
+func (this *LinkedHashSet) Elements() []interface{} {
+	data := make([]interface{}, this.lhm.Size())
+	i := 0
+	this.lhm.ForEach(func(kv *KeyValue) {
+		data[i] = kv.Key
+		i++
+	})
+	return data
+}
+
+func (this *LinkedHashSet) ForEach(fn func(interface{})) {
+	this.lhm.ForEach(func(kv *KeyValue) {
+		fn(kv.Key)
+	})
+}
+
+func (this *LinkedHashSet) AsSlice() interface{} {
+	it := this.lhm.Iterator()
+	if it.HasNext() {
+		typ := it.Peek().Key
+		t := reflect.TypeOf(typ)
+		sliceT := reflect.SliceOf(t)
+		sliceV := reflect.MakeSlice(sliceT, this.Size(), this.Size())
+		i := 0
+		this.lhm.ForEach(func(kv *KeyValue) {
+			v := reflect.ValueOf(it.Next().Key)
+			sliceV.Index(i).Set(v)
+			i++
+		})
+		return sliceV.Interface()
+	}
+	return nil
 }

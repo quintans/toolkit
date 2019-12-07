@@ -182,6 +182,12 @@ func (this *ArrayList) DeleteAt(pos int) bool {
 	return false
 }
 
+func (this *ArrayList) ForEach(fn func(interface{})) {
+	for _, v := range this.elements {
+		fn(v)
+	}
+}
+
 func (this *ArrayList) String() string {
 	return fmt.Sprint(this.elements)
 }

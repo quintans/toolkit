@@ -215,11 +215,19 @@ func (this *HashMap) Size() int {
 func (this *HashMap) Elements() []*KeyValue {
 	data := make([]*KeyValue, this.size)
 	i := 0
-	for it := this.Iterator(); it.HasNext(); {
-		data[i] = it.Next()
+	this.ForEach(func(kv *KeyValue) {
+		data[i] = kv
 		i++
-	}
+	})
 	return data
+}
+
+func (this *HashMap) ForEach(fn func(*KeyValue)) {
+	for _, entry := range this.table {
+		for ; entry != nil; entry = entry.next {
+			fn(&KeyValue{entry.key, entry.value})
+		}
+	}
 }
 
 func (this *HashMap) Values() []interface{} {
@@ -304,8 +312,13 @@ func (this *HashMap) HashCode() int {
 //== LinkedHashMap ==
 
 type LinkedHashMap struct {
-	keyOrder []Hasher
+	keyOrder []*keyEntry
 	entries  *HashMap
+}
+
+type keyEntry struct {
+	key   Hasher
+	entry *entry
 }
 
 type entry struct {
@@ -326,7 +339,7 @@ func NewLinkedHashMap() *LinkedHashMap {
 }
 
 func (this *LinkedHashMap) Clear() {
-	this.keyOrder = make([]Hasher, 0)
+	this.keyOrder = []*keyEntry{}
 	this.entries = NewHashMap()
 }
 
@@ -336,7 +349,7 @@ func (this *LinkedHashMap) Size() int {
 
 func (this *LinkedHashMap) Get(key Hasher) (interface{}, bool) {
 	if e, ok := this.entries.Get(key); ok {
-		if T, isT := e.(entry); isT {
+		if T, isT := e.(*entry); isT {
 			return T.value, true
 		}
 	}
@@ -362,10 +375,7 @@ func (this *LinkedHashMapIterator) Next() *KeyValue {
 func (this *LinkedHashMapIterator) Peek() *KeyValue {
 	if this.pos < this.hashmap.Size() {
 		k := this.hashmap.keyOrder[this.pos]
-		e, ok := this.hashmap.Get(k)
-		if ok {
-			return &KeyValue{k, e}
-		}
+		return &KeyValue{k.key, k.entry.value}
 	}
 
 	return nil
@@ -375,7 +385,7 @@ func (this *LinkedHashMapIterator) Remove() {
 	max := this.hashmap.Size()
 	if this.pos > 0 && this.pos < max {
 		k := this.hashmap.keyOrder[this.pos-1]
-		this.hashmap.Delete(k)
+		this.hashmap.Delete(k.key)
 	}
 }
 
@@ -386,33 +396,26 @@ func (this *LinkedHashMap) Iterator() Iterator {
 }
 
 func (this *LinkedHashMap) Put(key Hasher, value interface{}) interface{} {
-	e, ok := this.entries.Get(key)
-	if ok {
-		if T, isT := e.(entry); isT {
-			x := T.value
-			T.value = value
-			return x
-		}
-	} else {
-		this.keyOrder = append(this.keyOrder, key)
-		tmp := entry{len(this.keyOrder) - 1, value}
-		this.entries.Put(key, tmp)
+	tmp := &entry{0, value}
+	old := this.entries.Put(key, tmp)
+	if old == nil {
+		// was previously empty, so update the index
+		tmp.index = len(this.keyOrder)
+		this.keyOrder = append(this.keyOrder, &keyEntry{key, tmp})
 	}
 
 	return nil
 }
 
 func (this *LinkedHashMap) Delete(key Hasher) interface{} {
-	if e, ok := this.entries.Get(key); ok {
-		if T, isT := e.(entry); isT {
-			// since the slice has a non-primitive, we have to zero it
-			copy(this.keyOrder[T.index:], this.keyOrder[T.index+1:])
-			this.keyOrder[len(this.keyOrder)-1] = nil // zero it
-			this.keyOrder = this.keyOrder[:len(this.keyOrder)-1]
+	e := this.entries.Delete(key)
+	if T, isT := e.(*entry); isT {
+		// since the slice has a non-primitive, we have to zero it
+		copy(this.keyOrder[T.index:], this.keyOrder[T.index+1:])
+		this.keyOrder[len(this.keyOrder)-1] = nil // zero it
+		this.keyOrder = this.keyOrder[:len(this.keyOrder)-1]
 
-			this.entries.Delete(key)
-			return T.value
-		}
+		return T.value
 	}
 
 	return nil
@@ -420,23 +423,26 @@ func (this *LinkedHashMap) Delete(key Hasher) interface{} {
 
 func (this *LinkedHashMap) Elements() []*KeyValue {
 	data := make([]*KeyValue, len(this.keyOrder))
-	i := 0
-	for it := this.Iterator(); it.HasNext(); {
-		data[i] = it.Next()
-		i++
+	for i := 0; i < len(data); i++ {
+		ko := this.keyOrder[i]
+		data[i] = &KeyValue{ko.key, ko.entry.value}
 	}
 	return data
-
 }
 
 func (this *LinkedHashMap) Values() []interface{} {
 	data := make([]interface{}, len(this.keyOrder))
-	i := 0
-	for it := this.Iterator(); it.HasNext(); {
-		data[i] = it.Next().Value
-		i++
+	for i := 0; i < len(data); i++ {
+		ko := this.keyOrder[i]
+		data[i] = ko.entry.value
 	}
 	return data
+}
+
+func (this *LinkedHashMap) ForEach(fn func(*KeyValue)) {
+	for _, ko := range this.keyOrder {
+		fn(&KeyValue{ko.key, ko.entry.value})
+	}
 }
 
 func (this *LinkedHashMap) String() string {

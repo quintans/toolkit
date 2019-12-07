@@ -13,22 +13,29 @@ type Collection interface {
 	Size() int
 	Clear()
 	Contains(value interface{}) bool
-	Add(data ...interface{}) bool
 	Delete(key interface{}) bool
 
 	Enumerator() Enumerator
 	Elements() []interface{}
 	AsSlice() interface{} // returns elements in an array. ex: []int
 	Sort(greater func(a, b interface{}) bool) []interface{}
+	ForEach(func(interface{}))
 }
 
 type IList interface {
 	Collection
 
+	Add(data ...interface{}) bool
 	Get(pos int) interface{}
 	Set(pos int, value interface{})
 	Find(value interface{}) (int, interface{})
 	DeleteAt(pos int) bool
+}
+
+type ISet interface {
+	Collection
+
+	Add(data ...Hasher) bool
 }
 
 type Enumerator interface {
@@ -51,6 +58,7 @@ type Map interface {
 	Iterator() Iterator
 	Elements() []*KeyValue
 	Values() []interface{}
+	ForEach(func(*KeyValue))
 }
 
 type Iterator interface {

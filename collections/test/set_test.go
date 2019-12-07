@@ -4,10 +4,25 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/quintans/toolkit/collections"
 	"github.com/quintans/toolkit"
+	. "github.com/quintans/toolkit/collections"
 	. "github.com/quintans/toolkit/ext"
 )
+
+var unsortedHashedArray = []toolkit.Hasher{
+	Long(10),
+	Long(2),
+	Long(6),
+	Long(71),
+	Long(3),
+}
+var sortedHashedArray = []toolkit.Hasher{
+	Long(2),
+	Long(3),
+	Long(6),
+	Long(10),
+	Long(71),
+}
 
 func TestSetHashSet(t *testing.T) {
 	RunSetSame(NewHashSet(), t)
@@ -24,8 +39,8 @@ func TestSetLinkedHashSet(t *testing.T) {
 	RunSetSort(NewLinkedHashSet(), t)
 }
 
-func RunSetSame(list Collection, t *testing.T) {
-	list.Add(unsortedArray...)
+func RunSetSame(list ISet, t *testing.T) {
+	list.Add(unsortedHashedArray...)
 	list.Add(Long(2))
 	if list.Size() != 5 {
 		t.Error("Expected size of 5, got", list.Size())
@@ -33,8 +48,8 @@ func RunSetSame(list Collection, t *testing.T) {
 	fmt.Println(list.Elements())
 }
 
-func RunSetSort(list Collection, t *testing.T) {
-	list.Add(unsortedArray...)
+func RunSetSort(list ISet, t *testing.T) {
+	list.Add(unsortedHashedArray...)
 
 	ordered := list.Sort(greater)
 	if !compare(ordered, sortedArray) {
@@ -42,15 +57,15 @@ func RunSetSort(list Collection, t *testing.T) {
 	}
 }
 
-func RunSetAddAll(list Collection, t *testing.T) {
-	list.Add(unsortedArray...)
+func RunSetAddAll(list ISet, t *testing.T) {
+	list.Add(unsortedHashedArray...)
 	if !compare(list.Elements(), unsortedArray) {
-		t.Errorf("Expected %s, got %s\n", unsortedArray, list.Elements())
+		t.Errorf("Expected %s, got %s\n", unsortedHashedArray, list.Elements())
 	}
 }
 
-func RunSetContains(list Collection, t *testing.T) {
-	list.Add(unsortedArray...)
+func RunSetContains(list ISet, t *testing.T) {
+	list.Add(unsortedHashedArray...)
 
 	if list.Contains(Long(25)) {
 		t.Error("Expected NOT to Contain 25")
@@ -60,22 +75,22 @@ func RunSetContains(list Collection, t *testing.T) {
 	}
 }
 
-func RunSetEnumerator(list Collection, t *testing.T) {
-	list.Add(unsortedArray...)
+func RunSetEnumerator(list ISet, t *testing.T) {
+	list.Add(unsortedHashedArray...)
 
 	pos := 0
 	for e := list.Enumerator(); e.HasNext(); {
-		if !toolkit.Match(unsortedArray[pos], e.Next()) {
+		if !toolkit.Match(unsortedHashedArray[pos], e.Next()) {
 			t.Error("The enumeration did not return the same elements")
 		}
 		pos++
 	}
 }
 
-func RunSetInEnumerator(list Collection, t *testing.T) {
-	list.Add(unsortedArray...)
+func RunSetInEnumerator(list ISet, t *testing.T) {
+	list.Add(unsortedHashedArray...)
 
-	for _, v := range unsortedArray {
+	for _, v := range unsortedHashedArray {
 		var found = false
 		for e := list.Enumerator(); e.HasNext(); {
 			if toolkit.Match(v, e.Next()) {
