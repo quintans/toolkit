@@ -96,3 +96,14 @@ func TestEnumerator(t *testing.T) {
 		pos++
 	}
 }
+
+func TestHashing(t *testing.T) {
+	list := collections.NewArrayList()
+	list.Add("Hello", 10, Long(3))
+	h1 := list.HashCode()
+	list.Add(true)
+	h2 := list.HashCode()
+	if h1 != h2 {
+		t.Errorf("Expected %d but got %d", h1, h2)
+	}
+}

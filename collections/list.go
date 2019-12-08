@@ -28,7 +28,7 @@ func (a *ArrayList) Clear() {
 }
 
 type ArrayListEnumerator struct {
-	list   ArrayList
+	list   *ArrayList
 	pos    int
 	delPos int // enforce removal only if a Next() was called
 }
@@ -68,15 +68,15 @@ func (e *ArrayListEnumerator) Remove() {
 
 // returns a function that in every call return the next value
 // and a flag to see if a value was retrived, even if it was nil
-func (a ArrayList) Enumerator() Enumerator {
+func (a *ArrayList) Enumerator() Enumerator {
 	return &ArrayListEnumerator{list: a}
 }
 
-func (a ArrayList) Elements() []interface{} {
+func (a *ArrayList) Elements() []interface{} {
 	return a.elements
 }
 
-func (a ArrayList) AsSlice() interface{} {
+func (a *ArrayList) AsSlice() interface{} {
 	if len(a.elements) > 0 {
 		typ := a.elements[0]
 		t := reflect.TypeOf(typ)
@@ -90,19 +90,19 @@ func (a ArrayList) AsSlice() interface{} {
 	return nil
 }
 
-func (a ArrayList) Size() int {
+func (a *ArrayList) Size() int {
 	return len(a.elements)
 }
 
-func (a ArrayList) Empty() bool {
+func (a *ArrayList) Empty() bool {
 	return a.Size() == 0
 }
 
-func (a ArrayList) Get(pos int) interface{} {
+func (a *ArrayList) Get(pos int) interface{} {
 	return a.elements[pos]
 }
 
-func (a ArrayList) Set(pos int, value interface{}) {
+func (a *ArrayList) Set(pos int, value interface{}) {
 	a.elements[pos] = value
 }
 
@@ -125,7 +125,7 @@ func (a *ArrayList) Insert(i int, data ...interface{}) {
 	}
 }
 
-func (a ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
+func (a *ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
 	tmp := Clone(a.elements)
 	sort.Slice(tmp, func(x, y int) bool {
 		return less(tmp[x], tmp[y])
@@ -133,7 +133,7 @@ func (a ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
 	return tmp
 }
 
-func (a ArrayList) First(value interface{}) (int, interface{}) {
+func (a *ArrayList) First(value interface{}) (int, interface{}) {
 	if eq, isEq := value.(Equaler); isEq {
 		for i, v := range a.elements {
 			switch t := v.(type) {
@@ -159,7 +159,7 @@ func (a ArrayList) First(value interface{}) (int, interface{}) {
 	return -1, nil
 }
 
-func (a ArrayList) Find(fn func(interface{}) bool) (int, interface{}) {
+func (a *ArrayList) Find(fn func(interface{}) bool) (int, interface{}) {
 	for i, v := range a.elements {
 		if fn(v) {
 			return i, v
@@ -168,7 +168,7 @@ func (a ArrayList) Find(fn func(interface{}) bool) (int, interface{}) {
 	return -1, nil
 }
 
-func (a ArrayList) Contains(value interface{}) bool {
+func (a *ArrayList) Contains(value interface{}) bool {
 	k, _ := a.First(value)
 	if k > -1 {
 		return true
@@ -194,17 +194,17 @@ func (a *ArrayList) DeleteAt(pos int) bool {
 	return false
 }
 
-func (a ArrayList) ForEach(fn func(int, interface{})) {
+func (a *ArrayList) ForEach(fn func(int, interface{})) {
 	for k, v := range a.elements {
 		fn(k, v)
 	}
 }
 
-func (a ArrayList) String() string {
+func (a *ArrayList) String() string {
 	return fmt.Sprint(a)
 }
 
-func (a ArrayList) Clone() interface{} {
+func (a *ArrayList) Clone() interface{} {
 	return Clone(a.elements)
 }
 
@@ -214,7 +214,7 @@ func Clone(src []interface{}) []interface{} {
 	return dest
 }
 
-func (a ArrayList) Equals(e interface{}) bool {
+func (a *ArrayList) Equals(e interface{}) bool {
 	switch t := e.(type) { //type switch
 	case ArrayList:
 		// check size
@@ -234,7 +234,7 @@ func (a ArrayList) Equals(e interface{}) bool {
 	return false
 }
 
-func (a ArrayList) HashCode() int {
+func (a *ArrayList) HashCode() int {
 	if a.hash == 0 {
 		result := HashType(HASH_SEED, a)
 		result = Hash(result, a.elements...)
