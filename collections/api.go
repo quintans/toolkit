@@ -20,7 +20,6 @@ type Collection interface {
 	Elements() []interface{}
 	AsSlice() interface{} // returns elements in an array. ex: []int
 	Sort(greater func(a, b interface{}) bool) []interface{}
-	ForEach(func(interface{}))
 }
 
 type IList interface {
@@ -29,15 +28,18 @@ type IList interface {
 	Add(data ...interface{}) bool
 	Get(pos int) interface{}
 	Set(pos int, value interface{})
-	Find(value interface{}) (int, interface{})
+	First(value interface{}) (int, interface{})
+	Find(func(interface{}) bool) (int, interface{})
 	DeleteAt(pos int) bool
 	Insert(pos int, data ...interface{})
+	ForEach(func(int, interface{}))
 }
 
 type ISet interface {
 	Collection
 
 	Add(data ...Hasher) bool
+	ForEach(func(interface{}))
 }
 
 type Enumerator interface {

@@ -66,7 +66,7 @@ func TestFind(t *testing.T) {
 	list := collections.NewArrayList()
 	list.Add(unsortedArray...)
 
-	i, _ := list.Find(Long(2))
+	i, _ := list.First(Long(2))
 	if i != 1 {
 		t.Error("Expected 1, got ", i)
 	}

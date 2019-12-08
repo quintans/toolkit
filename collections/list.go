@@ -8,9 +8,7 @@ import (
 	. "github.com/quintans/toolkit"
 )
 
-type ArrayList struct {
-	elements []interface{}
-}
+type ArrayList []interface{}
 
 // check if it implements IList interface
 var _ IList = &ArrayList{}
@@ -18,73 +16,70 @@ var _ IList = &ArrayList{}
 // check if it implements Base interface
 var _ Base = &ArrayList{}
 
-func NewArrayList(elems ...interface{}) *ArrayList {
-	m := &ArrayList{
-		elements: elems,
-	}
-	return m
+func NewArrayList(elems ...interface{}) ArrayList {
+	return ArrayList(elems)
 }
 
-func (this *ArrayList) Clear() {
-	this.elements = []interface{}{}
+func (a *ArrayList) Clear() {
+	*a = []interface{}{}
 }
 
 type ArrayListEnumerator struct {
-	list   *ArrayList
+	list   ArrayList
 	pos    int
 	delPos int // enforce removal only if a Next() was called
 }
 
-func (this *ArrayListEnumerator) HasNext() bool {
-	return this.pos < len(this.list.elements)
+func (e *ArrayListEnumerator) HasNext() bool {
+	return e.pos < e.list.Size()
 }
 
-func (this *ArrayListEnumerator) Next() interface{} {
-	if this.pos < this.list.Size() {
-		k := this.list.elements[this.pos]
-		this.pos++
-		this.delPos = this.pos
+func (e *ArrayListEnumerator) Next() interface{} {
+	if e.pos < e.list.Size() {
+		k := e.list.Get(e.pos)
+		e.pos++
+		e.delPos = e.pos
 		return k
 	}
 
 	return nil
 }
 
-func (this *ArrayListEnumerator) Peek() interface{} {
-	if this.pos < this.list.Size() {
-		return this.list.elements[this.pos]
+func (e *ArrayListEnumerator) Peek() interface{} {
+	if e.pos < e.list.Size() {
+		return e.list.Get(e.pos)
 	}
 
 	return nil
 }
 
-func (this *ArrayListEnumerator) Remove() {
-	if this.delPos > 0 && this.delPos <= this.list.Size() {
-		this.list.DeleteAt(this.delPos - 1)
+func (e *ArrayListEnumerator) Remove() {
+	if e.delPos > 0 && e.delPos <= e.list.Size() {
+		e.list.DeleteAt(e.delPos - 1)
 		//since this position was removed steps to the previous position
-		this.pos -= 1
+		e.pos -= 1
 		// reset delete position
-		this.delPos = 0
+		e.delPos = 0
 	}
 }
 
 // returns a function that in every call return the next value
 // and a flag to see if a value was retrived, even if it was nil
-func (this *ArrayList) Enumerator() Enumerator {
-	return &ArrayListEnumerator{list: this}
+func (a ArrayList) Enumerator() Enumerator {
+	return &ArrayListEnumerator{list: a}
 }
 
-func (this *ArrayList) Elements() []interface{} {
-	return this.elements
+func (a ArrayList) Elements() []interface{} {
+	return a
 }
 
-func (this *ArrayList) AsSlice() interface{} {
-	if len(this.elements) > 0 {
-		typ := this.elements[0]
+func (a ArrayList) AsSlice() interface{} {
+	if len(a) > 0 {
+		typ := a[0]
 		t := reflect.TypeOf(typ)
 		sliceT := reflect.SliceOf(t)
-		sliceV := reflect.MakeSlice(sliceT, this.Size(), this.Size())
-		for i, e := range this.elements {
+		sliceV := reflect.MakeSlice(sliceT, a.Size(), a.Size())
+		for i, e := range a {
 			sliceV.Index(i).Set(reflect.ValueOf(e))
 		}
 		return sliceV.Interface()
@@ -92,53 +87,55 @@ func (this *ArrayList) AsSlice() interface{} {
 	return nil
 }
 
-func (this *ArrayList) Size() int {
-	return len(this.elements)
+func (a ArrayList) Size() int {
+	return len(a)
 }
 
-func (this *ArrayList) Empty() bool {
-	return this.Size() == 0
+func (a ArrayList) Empty() bool {
+	return a.Size() == 0
 }
 
-func (this *ArrayList) Get(pos int) interface{} {
-	return this.elements[pos]
+func (a ArrayList) Get(pos int) interface{} {
+	return a[pos]
 }
 
-func (this *ArrayList) Set(pos int, value interface{}) {
-	this.elements[pos] = value
+func (a ArrayList) Set(pos int, value interface{}) {
+	a[pos] = value
 }
 
-func (this *ArrayList) Add(data ...interface{}) bool {
-	this.elements = append(this.elements, data...)
+func (a *ArrayList) Add(data ...interface{}) bool {
+	*a = append(*a, data...)
 	return true
 }
 
-func (this *ArrayList) Insert(i int, data ...interface{}) {
-	if len(this.elements) == 1 {
+func (a *ArrayList) Insert(i int, data ...interface{}) {
+	if len(*a) == 1 {
 		// if data has one element it is more efficient this way
-		this.elements = append(this.elements, nil)
-		copy(this.elements[i+1:], this.elements[i:])
-		this.elements[i] = data[0]
+		tmp := append(*a, nil)
+		copy(tmp[i+1:], tmp[i:])
+		tmp[i] = data[0]
+		*a = tmp
 	} else {
-		tmp := append(data, this.elements[i:]...)
-		this.elements = append(this.elements[:i], tmp...)
+		arr := *a
+		tmp := append(data, arr[i:]...)
+		*a = append(arr[:i], tmp...)
 	}
 }
 
-func (this *ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
-	tmp := clone(this.elements)
+func (a ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
+	tmp := Clone(a)
 	sort.Slice(tmp, func(x, y int) bool {
 		return less(tmp[x], tmp[y])
 	})
 	return tmp
 }
 
-func (this *ArrayList) Find(value interface{}) (int, interface{}) {
-	if Eq, isEq := value.(Equaler); isEq {
-		for i, v := range this.elements {
+func (a ArrayList) First(value interface{}) (int, interface{}) {
+	if eq, isEq := value.(Equaler); isEq {
+		for i, v := range a {
 			switch t := v.(type) {
 			case Equaler:
-				if t.Equals(Eq) {
+				if t.Equals(eq) {
 					return i, v
 				}
 			default:
@@ -149,7 +146,7 @@ func (this *ArrayList) Find(value interface{}) (int, interface{}) {
 			}
 		}
 	} else {
-		for i, v := range this.elements {
+		for i, v := range a {
 			if v == value {
 				return i, v
 			}
@@ -159,62 +156,72 @@ func (this *ArrayList) Find(value interface{}) (int, interface{}) {
 	return -1, nil
 }
 
-func (this *ArrayList) Contains(value interface{}) bool {
-	k, _ := this.Find(value)
+func (a ArrayList) Find(fn func(interface{}) bool) (int, interface{}) {
+	for i, v := range a {
+		if fn(v) {
+			return i, v
+		}
+	}
+	return -1, nil
+}
+
+func (a ArrayList) Contains(value interface{}) bool {
+	k, _ := a.First(value)
 	if k > -1 {
 		return true
 	}
 	return false
 }
 
-func (this *ArrayList) Delete(value interface{}) bool {
-	k, _ := this.Find(value)
-	return this.DeleteAt(k)
+func (a *ArrayList) Delete(value interface{}) bool {
+	k, _ := a.First(value)
+	return a.DeleteAt(k)
 }
 
-func (this *ArrayList) DeleteAt(pos int) bool {
-	if pos >= 0 && pos < this.Size() {
+func (a *ArrayList) DeleteAt(pos int) bool {
+	if pos >= 0 && pos < a.Size() {
 		// since the slice has a non-primitive, we have to zero it
-		copy(this.elements[pos:], this.elements[pos+1:])
-		this.elements[len(this.elements)-1] = nil // zero it
-		this.elements = this.elements[:len(this.elements)-1]
+		arr := *a
+		copy(arr[pos:], arr[pos+1:])
+		arr[len(arr)-1] = nil // zero it
+		*a = arr[:len(arr)-1]
 
 		return true
 	}
 	return false
 }
 
-func (this *ArrayList) ForEach(fn func(interface{})) {
-	for _, v := range this.elements {
-		fn(v)
+func (this ArrayList) ForEach(fn func(int, interface{})) {
+	for k, v := range this {
+		fn(k, v)
 	}
 }
 
-func (this *ArrayList) String() string {
-	return fmt.Sprint(this.elements)
+func (a ArrayList) String() string {
+	return fmt.Sprint(a)
 }
 
-func (this *ArrayList) Clone() interface{} {
-	return &ArrayList{clone(this.elements)}
+func (a ArrayList) Clone() interface{} {
+	return Clone(a)
 }
 
-func clone(src []interface{}) []interface{} {
+func Clone(src []interface{}) []interface{} {
 	dest := make([]interface{}, len(src), cap(src))
 	copy(dest, src)
 	return dest
 }
 
-func (this *ArrayList) Equals(e interface{}) bool {
+func (this ArrayList) Equals(e interface{}) bool {
 	switch t := e.(type) { //type switch
-	case *ArrayList:
+	case ArrayList:
 		// check size
 		if this.Size() != t.Size() {
 			return false
 		}
 
 		// check if it has all entries (keys)
-		for k, v := range this.elements {
-			if v != t.elements[k] {
+		for k, v := range this {
+			if v != t[k] {
 				return false
 			}
 		}
@@ -224,6 +231,6 @@ func (this *ArrayList) Equals(e interface{}) bool {
 	return false
 }
 
-func (this *ArrayList) HashCode() int {
+func (a ArrayList) HashCode() int {
 	panic("ArrayList.HashCode not implemented")
 }
