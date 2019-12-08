@@ -8,7 +8,10 @@ import (
 	. "github.com/quintans/toolkit"
 )
 
-type ArrayList []interface{}
+type ArrayList struct {
+	elements []interface{}
+	hash     int
+}
 
 // check if it implements IList interface
 var _ IList = &ArrayList{}
@@ -17,12 +20,11 @@ var _ IList = &ArrayList{}
 var _ Base = &ArrayList{}
 
 func NewArrayList(elems ...interface{}) *ArrayList {
-	a := ArrayList(elems)
-	return &a
+	return &ArrayList{elems, 0}
 }
 
 func (a *ArrayList) Clear() {
-	*a = []interface{}{}
+	a.elements = []interface{}{}
 }
 
 type ArrayListEnumerator struct {
@@ -71,16 +73,16 @@ func (a ArrayList) Enumerator() Enumerator {
 }
 
 func (a ArrayList) Elements() []interface{} {
-	return a
+	return a.elements
 }
 
 func (a ArrayList) AsSlice() interface{} {
-	if len(a) > 0 {
-		typ := a[0]
+	if len(a.elements) > 0 {
+		typ := a.elements[0]
 		t := reflect.TypeOf(typ)
 		sliceT := reflect.SliceOf(t)
 		sliceV := reflect.MakeSlice(sliceT, a.Size(), a.Size())
-		for i, e := range a {
+		for i, e := range a.elements {
 			sliceV.Index(i).Set(reflect.ValueOf(e))
 		}
 		return sliceV.Interface()
@@ -89,7 +91,7 @@ func (a ArrayList) AsSlice() interface{} {
 }
 
 func (a ArrayList) Size() int {
-	return len(a)
+	return len(a.elements)
 }
 
 func (a ArrayList) Empty() bool {
@@ -97,34 +99,34 @@ func (a ArrayList) Empty() bool {
 }
 
 func (a ArrayList) Get(pos int) interface{} {
-	return a[pos]
+	return a.elements[pos]
 }
 
 func (a ArrayList) Set(pos int, value interface{}) {
-	a[pos] = value
+	a.elements[pos] = value
 }
 
 func (a *ArrayList) Add(data ...interface{}) bool {
-	*a = append(*a, data...)
+	a.elements = append(a.elements, data...)
 	return true
 }
 
 func (a *ArrayList) Insert(i int, data ...interface{}) {
-	if len(*a) == 1 {
+	if len(a.elements) == 1 {
 		// if data has one element it is more efficient this way
-		tmp := append(*a, nil)
+		tmp := append(a.elements, nil)
 		copy(tmp[i+1:], tmp[i:])
 		tmp[i] = data[0]
-		*a = tmp
+		a.elements = tmp
 	} else {
-		arr := *a
+		arr := a.elements
 		tmp := append(data, arr[i:]...)
-		*a = append(arr[:i], tmp...)
+		a.elements = append(arr[:i], tmp...)
 	}
 }
 
 func (a ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
-	tmp := Clone(a)
+	tmp := Clone(a.elements)
 	sort.Slice(tmp, func(x, y int) bool {
 		return less(tmp[x], tmp[y])
 	})
@@ -133,7 +135,7 @@ func (a ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
 
 func (a ArrayList) First(value interface{}) (int, interface{}) {
 	if eq, isEq := value.(Equaler); isEq {
-		for i, v := range a {
+		for i, v := range a.elements {
 			switch t := v.(type) {
 			case Equaler:
 				if t.Equals(eq) {
@@ -147,7 +149,7 @@ func (a ArrayList) First(value interface{}) (int, interface{}) {
 			}
 		}
 	} else {
-		for i, v := range a {
+		for i, v := range a.elements {
 			if v == value {
 				return i, v
 			}
@@ -158,7 +160,7 @@ func (a ArrayList) First(value interface{}) (int, interface{}) {
 }
 
 func (a ArrayList) Find(fn func(interface{}) bool) (int, interface{}) {
-	for i, v := range a {
+	for i, v := range a.elements {
 		if fn(v) {
 			return i, v
 		}
@@ -182,18 +184,18 @@ func (a *ArrayList) Delete(value interface{}) bool {
 func (a *ArrayList) DeleteAt(pos int) bool {
 	if pos >= 0 && pos < a.Size() {
 		// since the slice has a non-primitive, we have to zero it
-		arr := *a
+		arr := a.elements
 		copy(arr[pos:], arr[pos+1:])
 		arr[len(arr)-1] = nil // zero it
-		*a = arr[:len(arr)-1]
+		a.elements = arr[:len(arr)-1]
 
 		return true
 	}
 	return false
 }
 
-func (this ArrayList) ForEach(fn func(int, interface{})) {
-	for k, v := range this {
+func (a ArrayList) ForEach(fn func(int, interface{})) {
+	for k, v := range a.elements {
 		fn(k, v)
 	}
 }
@@ -203,7 +205,7 @@ func (a ArrayList) String() string {
 }
 
 func (a ArrayList) Clone() interface{} {
-	return Clone(a)
+	return Clone(a.elements)
 }
 
 func Clone(src []interface{}) []interface{} {
@@ -212,17 +214,17 @@ func Clone(src []interface{}) []interface{} {
 	return dest
 }
 
-func (this ArrayList) Equals(e interface{}) bool {
+func (a ArrayList) Equals(e interface{}) bool {
 	switch t := e.(type) { //type switch
 	case ArrayList:
 		// check size
-		if this.Size() != t.Size() {
+		if a.Size() != t.Size() {
 			return false
 		}
 
 		// check if it has all entries (keys)
-		for k, v := range this {
-			if v != t[k] {
+		for k, v := range a.elements {
+			if v != t.elements[k] {
 				return false
 			}
 		}
@@ -233,5 +235,10 @@ func (this ArrayList) Equals(e interface{}) bool {
 }
 
 func (a ArrayList) HashCode() int {
-	panic("ArrayList.HashCode not implemented")
+	if a.hash == 0 {
+		result := HashType(HASH_SEED, a)
+		result = Hash(result, a.elements...)
+		a.hash = result
+	}
+	return a.hash
 }

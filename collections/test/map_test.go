@@ -56,10 +56,10 @@ func TestResize(t *testing.T) {
 }
 
 var dics = []KeyValue{
-	KeyValue{Str("Martim"), 9},
-	KeyValue{Str("Paulo"), 41},
-	KeyValue{Str("Monica"), 33},
-	KeyValue{Str("Francisca"), 15},
+	KeyValue{Key: Str("Martim"), Value: 9},
+	KeyValue{Key: Str("Paulo"), Value: 41},
+	KeyValue{Key: Str("Monica"), Value: 33},
+	KeyValue{Key: Str("Francisca"), Value: 15},
 }
 
 func TestHashMapIterator(t *testing.T) {

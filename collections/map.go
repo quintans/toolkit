@@ -9,6 +9,7 @@ import (
 type KeyValue struct {
 	Key   Hasher
 	Value interface{}
+	hash  int
 }
 
 func (this *KeyValue) Equals(e interface{}) bool {
@@ -24,10 +25,13 @@ func (this *KeyValue) String() string {
 }
 
 func (this *KeyValue) HashCode() int {
-	result := HashType(HASH_SEED, this)
-	result = HashInt(result, this.Key.HashCode())
-	result = Hash(result, this.Value)
-	return result
+	if this.hash == 0 {
+		result := HashType(HASH_SEED, this)
+		result = HashInt(result, this.Key.HashCode())
+		result = Hash(result, this.Value)
+		this.hash = result
+	}
+	return this.hash
 }
 
 // == HashMap ==
@@ -229,7 +233,7 @@ func (this *HashMap) Elements() []*KeyValue {
 func (this *HashMap) ForEach(fn func(*KeyValue)) {
 	for _, entry := range this.table {
 		for ; entry != nil; entry = entry.next {
-			fn(&KeyValue{entry.key, entry.value})
+			fn(&KeyValue{entry.key, entry.value, 0})
 		}
 	}
 }
@@ -257,7 +261,7 @@ func (this *HashMapIterator) HasNext() bool {
 
 func (this *HashMapIterator) Next() *KeyValue {
 	if this.entry != nil {
-		kv := &KeyValue{this.entry.key, this.entry.value}
+		kv := &KeyValue{this.entry.key, this.entry.value, 0}
 		this.next()
 		return kv
 	}
@@ -266,7 +270,7 @@ func (this *HashMapIterator) Next() *KeyValue {
 
 func (this *HashMapIterator) Peek() *KeyValue {
 	if this.entry != nil {
-		return &KeyValue{this.entry.key, this.entry.value}
+		return &KeyValue{this.entry.key, this.entry.value, 0}
 	}
 	return nil
 }
@@ -383,7 +387,7 @@ func (this *LinkedHashMapIterator) Next() *KeyValue {
 func (this *LinkedHashMapIterator) Peek() *KeyValue {
 	if this.pos < this.hashmap.Size() {
 		k := this.hashmap.keyOrder[this.pos]
-		return &KeyValue{k.key, k.entry.value}
+		return &KeyValue{k.key, k.entry.value, 0}
 	}
 
 	return nil
@@ -433,7 +437,7 @@ func (this *LinkedHashMap) Elements() []*KeyValue {
 	data := make([]*KeyValue, len(this.keyOrder))
 	for i := 0; i < len(data); i++ {
 		ko := this.keyOrder[i]
-		data[i] = &KeyValue{ko.key, ko.entry.value}
+		data[i] = &KeyValue{ko.key, ko.entry.value, 0}
 	}
 	return data
 }
@@ -449,7 +453,7 @@ func (this *LinkedHashMap) Values() []interface{} {
 
 func (this *LinkedHashMap) ForEach(fn func(*KeyValue)) {
 	for _, ko := range this.keyOrder {
-		fn(&KeyValue{ko.key, ko.entry.value})
+		fn(&KeyValue{ko.key, ko.entry.value, 0})
 	}
 }
 

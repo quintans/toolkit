@@ -101,8 +101,11 @@ func HashType(aSeed int, aType interface{}) int {
 	return HashString(aSeed, t)
 }
 
-func Hash(aSeed int, aObject interface{}) int {
-	result := hash(aSeed, aObject)
+func Hash(aSeed int, aObject ...interface{}) int {
+	var result int
+	for _, o := range aObject {
+		result = hash(aSeed, o)
+	}
 	if result == 0 {
 		result = aSeed
 	}

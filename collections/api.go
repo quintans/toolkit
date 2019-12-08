@@ -12,27 +12,28 @@ type Collection interface {
 
 	Size() int
 	Empty() bool
-	Clear()
 	Contains(value interface{}) bool
-	Delete(key interface{}) bool
-
 	Enumerator() Enumerator
 	Elements() []interface{}
 	AsSlice() interface{} // returns elements in an array. ex: []int
 	Sort(greater func(a, b interface{}) bool) []interface{}
+
+	Clear()
+	Delete(key interface{}) bool
 }
 
 type IList interface {
 	Collection
 
-	Add(data ...interface{}) bool
 	Get(pos int) interface{}
-	Set(pos int, value interface{})
 	First(value interface{}) (int, interface{})
 	Find(func(interface{}) bool) (int, interface{})
+	ForEach(func(int, interface{}))
+
+	Add(data ...interface{}) bool
+	Set(pos int, value interface{})
 	DeleteAt(pos int) bool
 	Insert(pos int, data ...interface{})
-	ForEach(func(int, interface{}))
 }
 
 type ISet interface {
