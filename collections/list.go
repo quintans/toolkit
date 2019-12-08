@@ -16,8 +16,9 @@ var _ IList = &ArrayList{}
 // check if it implements Base interface
 var _ Base = &ArrayList{}
 
-func NewArrayList(elems ...interface{}) ArrayList {
-	return ArrayList(elems)
+func NewArrayList(elems ...interface{}) *ArrayList {
+	a := ArrayList(elems)
+	return &a
 }
 
 func (a *ArrayList) Clear() {
