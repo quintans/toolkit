@@ -31,6 +31,7 @@ type IList interface {
 	Set(pos int, value interface{})
 	Find(value interface{}) (int, interface{})
 	DeleteAt(pos int) bool
+	Insert(pos int, data ...interface{})
 }
 
 type ISet interface {

@@ -113,18 +113,17 @@ func (this *ArrayList) Add(data ...interface{}) bool {
 	return true
 }
 
-/*
-func (this *ArrayList) AddAll(values Hasher) bool {
-	valuesVal := reflect.ValueOf(values)
-	values2 := make([]Hasher, valuesVal.Len())
-	for i := range values2 {
-		values2[i] = valuesVal.Index(i).Interface()
+func (this *ArrayList) Insert(i int, data ...interface{}) {
+	if len(this.elements) == 1 {
+		// if data has one element it is more efficient this way
+		this.elements = append(this.elements, nil)
+		copy(this.elements[i+1:], this.elements[i:])
+		this.elements[i] = data[0]
+	} else {
+		tmp := append(data, this.elements[i:]...)
+		this.elements = append(this.elements[:i], tmp...)
 	}
-	this.elements = append(this.elements, values2...)
-
-	return true
 }
-*/
 
 func (this *ArrayList) Sort(less func(a, b interface{}) bool) []interface{} {
 	tmp := clone(this.elements)
