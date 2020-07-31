@@ -8,5 +8,6 @@ require (
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/quintans/goSQL v0.0.0-20171112122952-e93145e9919d
+	github.com/stretchr/testify v1.6.1
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )

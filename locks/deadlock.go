@@ -1,4 +1,4 @@
-package deadlock
+package locks
 
 import (
 	"fmt"
