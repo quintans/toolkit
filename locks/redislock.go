@@ -7,19 +7,17 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
-type RedisLock struct {
-	mu *redsync.Mutex
+type RedisLockPool struct {
+	lock *redsync.Redsync
 }
 
-func NewRedisLock(redisAddresses []string, lockName string, expiry time.Duration) (RedisLock, error) {
+func NewRedisLockPool(redisAddresses []string) (RedisLockPool, error) {
 	pool, err := redisPool(redisAddresses)
 	if err != nil {
-		return RedisLock{}, err
+		return RedisLockPool{}, err
 	}
-	lock := redsync.New(pool)
-	mu := lock.NewMutex(lockName, redsync.SetExpiry(expiry), redsync.SetTries(2))
-	return RedisLock{
-		mu: mu,
+	return RedisLockPool{
+		lock: redsync.New(pool),
 	}, nil
 }
 
@@ -34,6 +32,17 @@ func redisPool(addrs []string) ([]redsync.Pool, error) {
 		pool[k] = p
 	}
 	return pool, nil
+}
+
+func (p RedisLockPool) NewLock(lockName string, expiry time.Duration) RedisLock {
+	mu := p.lock.NewMutex(lockName, redsync.SetExpiry(expiry), redsync.SetTries(2))
+	return RedisLock{
+		mu: mu,
+	}
+}
+
+type RedisLock struct {
+	mu *redsync.Mutex
 }
 
 func (l RedisLock) Lock() (bool, error) {
