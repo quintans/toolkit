@@ -37,26 +37,50 @@ func redisPool(addrs []string) ([]redsync.Pool, error) {
 func (p RedisLockPool) NewLock(lockName string, expiry time.Duration) RedisLock {
 	mu := p.lock.NewMutex(lockName, redsync.SetExpiry(expiry), redsync.SetTries(2))
 	return RedisLock{
-		mu: mu,
+		mu:        mu,
+		heartbeat: expiry / 2,
 	}
 }
 
 type RedisLock struct {
-	mu *redsync.Mutex
+	mu        *redsync.Mutex
+	heartbeat time.Duration
+	done      chan struct{}
 }
 
-func (l RedisLock) Lock() (bool, error) {
+func (l RedisLock) Lock() (chan struct{}, error) {
 	err := l.mu.Lock()
 	if err == redsync.ErrFailed {
-		return false, nil
+		return nil, nil
 	}
-	return err == nil, err
-}
+	if err != nil {
+		return nil, err
+	}
 
-func (l RedisLock) Extend() (bool, error) {
-	return l.mu.Extend()
+	l.done = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(l.heartbeat)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-l.done:
+				l.Unlock()
+				return
+			case <-ticker.C:
+				ok, _ := l.mu.Extend()
+				if !ok {
+					l.Unlock()
+					return
+				}
+			}
+		}
+
+	}()
+
+	return l.done, nil
 }
 
 func (l RedisLock) Unlock() (bool, error) {
+	close(l.done)
 	return l.mu.Unlock()
 }
