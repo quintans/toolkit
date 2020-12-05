@@ -80,7 +80,8 @@ func (l RedisLock) Lock() (chan struct{}, error) {
 	return l.done, nil
 }
 
-func (l RedisLock) Unlock() (bool, error) {
+func (l RedisLock) Unlock() error {
 	close(l.done)
-	return l.mu.Unlock()
+	_, err := l.mu.Unlock()
+	return err
 }
