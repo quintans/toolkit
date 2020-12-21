@@ -28,8 +28,8 @@ func NewConsulLockPool(consulAddress string) (ConsulLockPool, error) {
 	}, nil
 }
 
-func (p ConsulLockPool) NewLock(lockName string, expiry time.Duration) ConsulLock {
-	return ConsulLock{
+func (p ConsulLockPool) NewLock(lockName string, expiry time.Duration) *ConsulLock {
+	return &ConsulLock{
 		client:   p.client,
 		lockName: lockName,
 		expiry:   expiry,
