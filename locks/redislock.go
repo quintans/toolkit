@@ -64,7 +64,7 @@ func (l RedisLock) Lock() (chan struct{}, error) {
 		for {
 			select {
 			case <-l.done:
-				l.Unlock()
+				l.mu.Unlock()
 				return
 			case <-ticker.C:
 				ok, _ := l.mu.Extend()

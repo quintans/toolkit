@@ -1,6 +1,7 @@
 package locks
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -11,7 +12,8 @@ type ConsulLockPool struct {
 	client *api.Client
 }
 
-func NewConsulLockPool(consulAddress string, sessionName string) (ConsulLockPool, error) {
+func NewConsulLockPool(consulAddress string) (ConsulLockPool, error) {
+	api.DefaultConfig()
 	client, err := api.NewClient(&api.Config{Address: consulAddress})
 	if err != nil {
 		return ConsulLockPool{}, err
@@ -26,12 +28,12 @@ func NewConsulLockPool(consulAddress string, sessionName string) (ConsulLockPool
 	}, nil
 }
 
-func (p ConsulLockPool) NewLock(lockName string, expiry time.Duration) (ConsulLock, error) {
+func (p ConsulLockPool) NewLock(lockName string, expiry time.Duration) ConsulLock {
 	return ConsulLock{
 		client:   p.client,
 		lockName: lockName,
 		expiry:   expiry,
-	}, nil
+	}
 }
 
 type ConsulLock struct {
@@ -41,45 +43,80 @@ type ConsulLock struct {
 	done     chan struct{}
 }
 
-func (l ConsulLock) Lock() (chan struct{}, error) {
+func (l *ConsulLock) Lock(ctx context.Context) (chan struct{}, error) {
 	sEntry := &api.SessionEntry{
-		TTL:       l.expiry.String(),
-		LockDelay: 1 * time.Millisecond,
-		Behavior:  "delete",
+		TTL:      l.expiry.String(),
+		Behavior: "delete",
 	}
-	sID, _, err := l.client.Session().Create(sEntry, nil)
+	options := &api.WriteOptions{}
+	options = options.WithContext(ctx)
+	sID, _, err := l.client.Session().Create(sEntry, options)
 	if err != nil {
 		return nil, err
 	}
-
-	// auto renew session
-	l.done = make(chan struct{})
-	go func() {
-		err = l.client.Session().RenewPeriodic(sEntry.TTL, sID, nil, l.done)
-		if err != nil {
-			close(l.done)
-		}
-	}()
 
 	acquireKv := &api.KVPair{
 		Session: sID,
 		Key:     l.lockName,
 		Value:   []byte(sID),
 	}
-	acquired, _, err := l.client.KV().Acquire(acquireKv, nil)
+	acquired, _, err := l.client.KV().Acquire(acquireKv, options)
 	if err != nil {
 		return nil, err
 	}
 
 	if !acquired {
-		return nil, fmt.Errorf("Unable to acquire lock for key %s", l.lockName)
+		l.client.Session().Destroy(sID, options)
+		return nil, nil
 	}
+
+	// auto renew session
+	l.done = make(chan struct{})
+	go func() {
+		err = l.client.Session().RenewPeriodic(sEntry.TTL, sID, options, l.done)
+		if err != nil {
+			close(l.done)
+		}
+	}()
 
 	return l.done, nil
 }
 
-func (l ConsulLock) Unlock() error {
+func (l ConsulLock) Unlock(ctx context.Context) error {
 	close(l.done)
-	_, err := l.client.KV().Delete(l.lockName, nil)
+	options := &api.WriteOptions{}
+	options = options.WithContext(ctx)
+	_, err := l.client.KV().Delete(l.lockName, options)
+	return err
+}
+
+func (l ConsulLock) WaitForUnlock(ctx context.Context) error {
+	options := &api.QueryOptions{}
+	options = options.WithContext(ctx)
+
+	done := make(chan error, 1)
+	heartbeat := l.expiry / 2
+
+	go func() {
+		ticker := time.NewTicker(heartbeat)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				kv, _, err := l.client.KV().Get(l.lockName, options)
+				if err != nil {
+					done <- err
+					return
+				}
+				if kv == nil {
+					done <- nil
+					return
+				}
+			}
+		}
+
+	}()
+	err := <-done
+
 	return err
 }
