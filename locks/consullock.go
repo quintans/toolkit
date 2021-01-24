@@ -38,6 +38,7 @@ func (p ConsulLockPool) NewLock(lockName string, expiry time.Duration) *ConsulLo
 
 type ConsulLock struct {
 	client   *api.Client
+	sID      string
 	lockName string
 	expiry   time.Duration
 	done     chan struct{}
@@ -55,8 +56,9 @@ func (l *ConsulLock) Lock(ctx context.Context) (chan struct{}, error) {
 		return nil, err
 	}
 
+	l.sID = sID
 	acquireKv := &api.KVPair{
-		Session: sID,
+		Session: l.sID,
 		Key:     l.lockName,
 		Value:   []byte(sID),
 	}
@@ -86,7 +88,11 @@ func (l ConsulLock) Unlock(ctx context.Context) error {
 	close(l.done)
 	options := &api.WriteOptions{}
 	options = options.WithContext(ctx)
-	_, err := l.client.KV().Delete(l.lockName, options)
+	apiKv := &api.KVPair{
+		Session: l.sID,
+		Key:     l.lockName,
+	}
+	_, _, err := l.client.KV().Release(apiKv, options)
 	return err
 }
 
