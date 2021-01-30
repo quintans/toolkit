@@ -3,6 +3,7 @@ package locks
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -42,9 +43,17 @@ type ConsulLock struct {
 	lockName string
 	expiry   time.Duration
 	done     chan struct{}
+	mu       sync.Mutex
 }
 
 func (l *ConsulLock) Lock(ctx context.Context) (chan struct{}, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.done != nil {
+		return nil, fmt.Errorf("this lock '%s' is already acquire. Unlock it first", l.lockName)
+	}
+
 	sEntry := &api.SessionEntry{
 		TTL:      l.expiry.String(),
 		Behavior: "delete",
@@ -75,30 +84,33 @@ func (l *ConsulLock) Lock(ctx context.Context) (chan struct{}, error) {
 	// auto renew session
 	l.done = make(chan struct{})
 	go func() {
-		err = l.client.Session().RenewPeriodic(sEntry.TTL, sID, options, l.done)
+		// we use a new options because context may no longer be usable
+		err := l.client.Session().RenewPeriodic(sEntry.TTL, sID, &api.WriteOptions{}, l.done)
 		if err != nil {
-			close(l.done)
+			l.Unlock(options.Context())
 		}
 	}()
 
 	return l.done, nil
 }
 
-func (l ConsulLock) Unlock(ctx context.Context) error {
-	close(l.done)
-	options := &api.WriteOptions{}
-	options = options.WithContext(ctx)
-	apiKv := &api.KVPair{
-		Session: l.sID,
-		Key:     l.lockName,
+func (l *ConsulLock) Unlock(ctx context.Context) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.done == nil {
+		return nil
 	}
-	_, _, err := l.client.KV().Release(apiKv, options)
-	return err
+
+	close(l.done)
+	l.done = nil
+
+	return nil
 }
 
-func (l ConsulLock) WaitForUnlock(ctx context.Context) error {
-	options := &api.QueryOptions{}
-	options = options.WithContext(ctx)
+func (l *ConsulLock) WaitForUnlock(ctx context.Context) error {
+	opts := &api.QueryOptions{}
+	opts = opts.WithContext(ctx)
 
 	done := make(chan error, 1)
 	heartbeat := l.expiry / 2
@@ -109,7 +121,7 @@ func (l ConsulLock) WaitForUnlock(ctx context.Context) error {
 		for {
 			select {
 			case <-ticker.C:
-				kv, _, err := l.client.KV().Get(l.lockName, options)
+				kv, _, err := l.client.KV().Get(l.lockName, opts)
 				if err != nil {
 					done <- err
 					return
