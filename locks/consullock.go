@@ -119,18 +119,16 @@ func (l *ConsulLock) WaitForUnlock(ctx context.Context) error {
 		ticker := time.NewTicker(heartbeat)
 		defer ticker.Stop()
 		for {
-			select {
-			case <-ticker.C:
-				kv, _, err := l.client.KV().Get(l.lockName, opts)
-				if err != nil {
-					done <- err
-					return
-				}
-				if kv == nil {
-					done <- nil
-					return
-				}
+			kv, _, err := l.client.KV().Get(l.lockName, opts)
+			if err != nil {
+				done <- err
+				return
 			}
+			if kv == nil {
+				done <- nil
+				return
+			}
+			<-ticker.C
 		}
 
 	}()
