@@ -50,7 +50,7 @@ func (this *LRUCache) Get(key string, callback func() interface{}) (interface{},
 
 	value, ok := this.get(key)
 	if ok {
-		// returns true indicating that it not found in the cache
+		// returns true indicating that it was found in the cache
 		return value, true
 	}
 
