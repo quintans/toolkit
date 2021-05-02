@@ -1,4 +1,4 @@
-package toolkit
+package timers
 
 import (
 	"sync"
@@ -14,44 +14,46 @@ type Debouncer struct {
 
 // NewDebounce creates a new Debouncer
 func NewDebounce(interval time.Duration, action func(arg interface{})) *Debouncer {
-	var debounce = &Debouncer{}
-	debounce.input = make(chan interface{}, 10)
+	d := &Debouncer{}
+	d.input = make(chan interface{}, 10)
 
-	go func(input chan interface{}) {
+	go func() {
 		// clean up
 		defer func() {
-			if debounce.OnExit != nil {
-				debounce.OnExit()
+			if d.OnExit != nil {
+				d.OnExit()
 			}
 		}()
 
 		var item interface{}
 		var ok bool
+		t := time.NewTimer(interval)
 		for {
 			select {
-			case item, ok = <-input:
+			case item, ok = <-d.input:
 				if !ok {
 					// was closed
 					return
 				}
-			case <-time.After(interval):
+				t.Reset(interval)
+			case <-t.C:
 				action(item)
 				return
 			}
 		}
-	}(debounce.input)
+	}()
 
-	return debounce
+	return d
 }
 
 // Delay delays the execution of action declared when we created the debouncer
-func (debounce *Debouncer) Delay(item interface{}) {
-	debounce.input <- item
+func (d *Debouncer) Delay(item interface{}) {
+	d.input <- item
 }
 
 // Kill terminates the debouncer
-func (debounce *Debouncer) Kill() {
-	debounce.once.Do(func() {
-		close(debounce.input)
+func (d *Debouncer) Kill() {
+	d.once.Do(func() {
+		close(d.input)
 	})
 }

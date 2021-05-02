@@ -1,4 +1,4 @@
-package toolkit
+package timers
 
 import (
 	"sync"
@@ -16,7 +16,7 @@ func NewTicker(duration time.Duration, hnd func(time.Time)) *Ticker {
 }
 
 func NewDelayedTicker(delay time.Duration, duration time.Duration, hnd func(time.Time)) *Ticker {
-	var tck = &Ticker{
+	tck := &Ticker{
 		stop: make(chan struct{}, 1),
 	}
 

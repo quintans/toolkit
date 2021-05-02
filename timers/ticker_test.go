@@ -1,4 +1,4 @@
-package toolkit
+package timers
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 )
 
 func TestTicker(t *testing.T) {
-	var cnt = 0
-	var tick = NewTicker(time.Second, func(t time.Time) {
+	cnt := 0
+	tick := NewTicker(time.Second, func(t time.Time) {
 		cnt++
 		fmt.Println(t, "count=", cnt)
 	})
