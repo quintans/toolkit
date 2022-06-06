@@ -1,4 +1,4 @@
-package locks_test
+package consullock_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/docker/go-connections/nat"
-	"github.com/quintans/toolkit/locks"
+	"github.com/quintans/toolkit/consullock"
 	"github.com/stretchr/testify/require"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -53,7 +53,7 @@ func TestConsul(t *testing.T) {
 	require.NoError(t, err)
 	defer container.Terminate(ctx)
 
-	pool1, err := locks.NewConsulLockPool(addr)
+	pool1, err := consullock.NewPool(addr)
 	require.NoError(t, err)
 
 	lock1 := pool1.NewLock(LOCK_KEY, 10*time.Second)
@@ -63,7 +63,7 @@ func TestConsul(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	pool2, err := locks.NewConsulLockPool(addr)
+	pool2, err := consullock.NewPool(addr)
 	require.NoError(t, err)
 
 	lock2 := pool2.NewLock(LOCK_KEY, 10*time.Second)

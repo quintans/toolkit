@@ -1,4 +1,4 @@
-package locks
+package consullock
 
 import (
 	"context"
@@ -9,35 +9,35 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
-type ConsulLockPool struct {
+type Pool struct {
 	client *api.Client
 }
 
-func NewConsulLockPool(consulAddress string) (ConsulLockPool, error) {
+func NewPool(consulAddress string) (Pool, error) {
 	api.DefaultConfig()
 	client, err := api.NewClient(&api.Config{Address: consulAddress})
 	if err != nil {
-		return ConsulLockPool{}, err
+		return Pool{}, err
 	}
 
 	if err != nil {
-		return ConsulLockPool{}, fmt.Errorf("session create err: %v", err)
+		return Pool{}, fmt.Errorf("session create err: %v", err)
 	}
 
-	return ConsulLockPool{
+	return Pool{
 		client: client,
 	}, nil
 }
 
-func (p ConsulLockPool) NewLock(lockName string, expiry time.Duration) *ConsulLock {
-	return &ConsulLock{
+func (p Pool) NewLock(lockName string, expiry time.Duration) *Lock {
+	return &Lock{
 		client:   p.client,
 		lockName: lockName,
 		expiry:   expiry,
 	}
 }
 
-type ConsulLock struct {
+type Lock struct {
 	client   *api.Client
 	sID      string
 	lockName string
@@ -46,7 +46,7 @@ type ConsulLock struct {
 	mu       sync.Mutex
 }
 
-func (l *ConsulLock) Lock(ctx context.Context) (chan struct{}, error) {
+func (l *Lock) Lock(ctx context.Context) (chan struct{}, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -77,7 +77,7 @@ func (l *ConsulLock) Lock(ctx context.Context) (chan struct{}, error) {
 	}
 
 	if !acquired {
-		l.client.Session().Destroy(sID, options)
+		_, _ = l.client.Session().Destroy(sID, options)
 		return nil, nil
 	}
 
@@ -87,14 +87,14 @@ func (l *ConsulLock) Lock(ctx context.Context) (chan struct{}, error) {
 		// we use a new options because context may no longer be usable
 		err := l.client.Session().RenewPeriodic(sEntry.TTL, sID, &api.WriteOptions{}, l.done)
 		if err != nil {
-			l.Unlock(options.Context())
+			_ = l.Unlock(options.Context())
 		}
 	}()
 
 	return l.done, nil
 }
 
-func (l *ConsulLock) Unlock(ctx context.Context) error {
+func (l *Lock) Unlock(ctx context.Context) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -108,7 +108,7 @@ func (l *ConsulLock) Unlock(ctx context.Context) error {
 	return nil
 }
 
-func (l *ConsulLock) WaitForUnlock(ctx context.Context) error {
+func (l *Lock) WaitForUnlock(ctx context.Context) error {
 	opts := &api.QueryOptions{}
 	opts = opts.WithContext(ctx)
 
@@ -130,7 +130,6 @@ func (l *ConsulLock) WaitForUnlock(ctx context.Context) error {
 			}
 			<-ticker.C
 		}
-
 	}()
 	err := <-done
 

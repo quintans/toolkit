@@ -1,4 +1,4 @@
-package locks
+package redislock
 
 import (
 	"time"
@@ -7,16 +7,16 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
-type RedisLockPool struct {
+type Pool struct {
 	lock *redsync.Redsync
 }
 
-func NewRedisLockPool(redisAddresses []string) (RedisLockPool, error) {
+func NewPool(redisAddresses []string) (Pool, error) {
 	pool, err := redisPool(redisAddresses)
 	if err != nil {
-		return RedisLockPool{}, err
+		return Pool{}, err
 	}
-	return RedisLockPool{
+	return Pool{
 		lock: redsync.New(pool),
 	}, nil
 }
@@ -34,21 +34,21 @@ func redisPool(addrs []string) ([]redsync.Pool, error) {
 	return pool, nil
 }
 
-func (p RedisLockPool) NewLock(lockName string, expiry time.Duration) RedisLock {
+func (p Pool) NewLock(lockName string, expiry time.Duration) Lock {
 	mu := p.lock.NewMutex(lockName, redsync.SetExpiry(expiry), redsync.SetTries(2))
-	return RedisLock{
+	return Lock{
 		mu:        mu,
 		heartbeat: expiry / 2,
 	}
 }
 
-type RedisLock struct {
+type Lock struct {
 	mu        *redsync.Mutex
 	heartbeat time.Duration
 	done      chan struct{}
 }
 
-func (l RedisLock) Lock() (chan struct{}, error) {
+func (l Lock) Lock() (chan struct{}, error) {
 	err := l.mu.Lock()
 	if err == redsync.ErrFailed {
 		return nil, nil
@@ -74,13 +74,12 @@ func (l RedisLock) Lock() (chan struct{}, error) {
 				}
 			}
 		}
-
 	}()
 
 	return l.done, nil
 }
 
-func (l RedisLock) Unlock() error {
+func (l Lock) Unlock() error {
 	close(l.done)
 	_, err := l.mu.Unlock()
 	return err

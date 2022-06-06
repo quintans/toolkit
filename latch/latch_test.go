@@ -1,4 +1,4 @@
-package locks
+package latch
 
 import (
 	"testing"

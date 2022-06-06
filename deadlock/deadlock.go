@@ -1,4 +1,4 @@
-package locks
+package deadlock
 
 import (
 	"fmt"
@@ -22,8 +22,8 @@ type stack struct {
 }
 
 func lock(lockFn func(), m *stack) {
-	var callers = make([]uintptr, Config.StackDepth)
-	var length = runtime.Callers(3, callers)
+	callers := make([]uintptr, Config.StackDepth)
+	length := runtime.Callers(3, callers)
 	callers = callers[:length]
 
 	ch := make(chan struct{})
@@ -74,7 +74,7 @@ func (m *RWMutex) Unlock() {
 }
 
 func (m *RWMutex) RLock() {
-	//lock(m.mu.RLock, &m.stack)
+	// lock(m.mu.RLock, &m.stack)
 	m.mu.RLock()
 }
 
@@ -91,13 +91,13 @@ func printStackTrace(callers []uintptr) {
 		if fun == nil {
 			fmt.Println("n/a")
 		} else {
-			var fnName = fun.Name()
-			var idx = strings.LastIndex(fnName, ".")
+			fnName := fun.Name()
+			idx := strings.LastIndex(fnName, ".")
 			if idx > 0 {
 				fnName = fnName[idx+1:]
 			}
 
-			var file, line = fun.FileLine(pc)
+			file, line := fun.FileLine(pc)
 			fmt.Printf("%s:%v %s()\n", file, line, fnName)
 		}
 	}
