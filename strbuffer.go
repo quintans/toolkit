@@ -20,7 +20,7 @@ func NewStrBuffer(str ...interface{}) *StrBuffer {
 }
 
 func (s *StrBuffer) Addf(template string, a ...interface{}) *StrBuffer {
-	s.Add(fmt.Sprintf(template, a...))
+	s.builder.WriteString(fmt.Sprintf(template, a...))
 	return s
 }
 
