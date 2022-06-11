@@ -1,16 +1,17 @@
 package toolkit
 
-import "bytes"
-
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type StrBuffer struct {
-	buffer bytes.Buffer
-	hash   int
+	builder strings.Builder
+	hash    int
 }
 
 // check if it implements Base interface
-var _ Base = &StrBuffer{}
+var _ Base = (*StrBuffer)(nil)
 
 func NewStrBuffer(str ...interface{}) *StrBuffer {
 	s := new(StrBuffer)
@@ -18,66 +19,59 @@ func NewStrBuffer(str ...interface{}) *StrBuffer {
 	return s
 }
 
-func (this *StrBuffer) Addf(template string, a ...interface{}) *StrBuffer {
-	this.Add(fmt.Sprintf(template, a...))
-	return this
+func (s *StrBuffer) Addf(template string, a ...interface{}) *StrBuffer {
+	s.Add(fmt.Sprintf(template, a...))
+	return s
 }
 
-func (this *StrBuffer) Add(a ...interface{}) *StrBuffer {
+func (s *StrBuffer) Add(a ...interface{}) *StrBuffer {
 	for _, v := range a {
-		this.buffer.WriteString(fmt.Sprintf("%v", v))
+		s.builder.WriteString(fmt.Sprintf("%v", v))
 	}
-	return this
+	return s
 }
 
-func (this *StrBuffer) Size() int {
-	return this.buffer.Len()
+func (s *StrBuffer) Size() int {
+	return s.builder.Len()
 }
 
-func (this *StrBuffer) IsEmpty() bool {
-	return this.buffer.Len() == 0
+func (s *StrBuffer) IsEmpty() bool {
+	return s.builder.Len() == 0
 }
 
-func (this *StrBuffer) Clear() {
-	this.buffer.Reset()
+func (s *StrBuffer) Clear() {
+	s.builder.Reset()
 }
 
-func (this *StrBuffer) String() string {
-	return this.buffer.String()
+func (s *StrBuffer) String() string {
+	return s.builder.String()
 }
 
-func (this *StrBuffer) Equals(e interface{}) bool {
+func (s *StrBuffer) Equals(e interface{}) bool {
 	switch t := e.(type) { //type switch
 	case *StrBuffer:
-		if this.Size() != t.Size() {
+		if s.Size() != t.Size() {
 			return false
 		}
-		b1 := this.buffer.Bytes()
-		b2 := t.buffer.Bytes()
-		max := len(b1)
-		for i := 0; i < max; i++ {
-			if b1[i] != b2[i] {
-				return false
-			}
-		}
+		b1 := s.builder.String()
+		b2 := t.builder.String()
 
-		return true
-		//return this.String() == t.String()
+		return b1 == b2
 	}
 	return false
 }
 
-func (this *StrBuffer) Clone() interface{} {
-	x := new(StrBuffer)
+func (s *StrBuffer) Clone() interface{} {
+	x := &StrBuffer{}
 	x.Add(x.String())
 	return x
 }
 
-func (this *StrBuffer) HashCode() int {
-	if this.hash == 0 {
-		this.hash = HashString(HASH_SEED, this.String())
+func (s *StrBuffer) HashCode() int {
+	if s.hash == 0 {
+		s.hash = HashString(HASH_SEED, s.String())
 	}
-	return this.hash
+	return s.hash
 }
 
 type Joiner struct {
@@ -92,25 +86,25 @@ func NewJoiner(separator string) *Joiner {
 	return this
 }
 
-func (this *Joiner) Append(a ...interface{}) *Joiner {
-	this.StrBuffer.Add(a...)
-	return this
+func (j *Joiner) Append(a ...interface{}) *Joiner {
+	j.StrBuffer.Add(a...)
+	return j
 }
 
-func (this *Joiner) AddAsOne(a ...interface{}) *Joiner {
-	if this.StrBuffer.Size() > 0 {
-		this.StrBuffer.Add(this.separator)
+func (j *Joiner) AddAsOne(a ...interface{}) *Joiner {
+	if j.StrBuffer.Size() > 0 {
+		j.StrBuffer.Add(j.separator)
 	}
-	this.StrBuffer.Add(a...)
-	return this
+	j.StrBuffer.Add(a...)
+	return j
 }
 
-func (this *Joiner) Add(a ...interface{}) *Joiner {
+func (j *Joiner) Add(a ...interface{}) *Joiner {
 	for _, v := range a {
-		if this.StrBuffer.Size() > 0 {
-			this.StrBuffer.Add(this.separator)
+		if j.StrBuffer.Size() > 0 {
+			j.StrBuffer.Add(j.separator)
 		}
-		this.StrBuffer.Add(v)
+		j.StrBuffer.Add(v)
 	}
-	return this
+	return j
 }
