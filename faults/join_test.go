@@ -38,7 +38,7 @@ func TestIs(t *testing.T) {
 
 func TestAs(t *testing.T) {
 	err := faults.Join(Err1, Err2)
-	var e *faults.CompositeError
+	var e *faults.LinkedError
 	require.True(t, errors.As(err, &e))
 	require.Equal(t, "E1: CUSTOM", e.Error())
 }
