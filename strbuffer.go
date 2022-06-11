@@ -26,7 +26,14 @@ func (s *StrBuffer) Addf(template string, a ...interface{}) *StrBuffer {
 
 func (s *StrBuffer) Add(a ...interface{}) *StrBuffer {
 	for _, v := range a {
-		s.builder.WriteString(fmt.Sprintf("%v", v))
+		switch t := v.(type) {
+		case string:
+			s.builder.WriteString(t)
+		case fmt.Stringer:
+			s.builder.WriteString(t.String())
+		default:
+			s.builder.WriteString(fmt.Sprintf("%v", v))
+		}
 	}
 	return s
 }
