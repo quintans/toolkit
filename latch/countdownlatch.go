@@ -11,7 +11,8 @@ func NewCountDownLatch() *CountDownLatch {
 	c := make(chan struct{})
 	close(c)
 	return &CountDownLatch{
-		done: c,
+		done:   c,
+		closed: true,
 	}
 }
 
@@ -28,12 +29,12 @@ func (l *CountDownLatch) Add(delta int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if delta > 0 && l.counter == 0 {
-		l.done = make(chan struct{})
-	}
-
+	oldCount := l.counter
 	l.counter += delta
-	if l.counter <= 0 && !l.closed {
+	if oldCount <= 0 && l.counter > 0 {
+		l.done = make(chan struct{})
+		l.closed = false
+	} else if oldCount > 0 && l.counter <= 0 {
 		l.closed = true
 		close(l.done)
 	}
@@ -65,6 +66,7 @@ func (l *CountDownLatch) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	l.counter = 0
 	if !l.closed {
 		l.closed = true
 		close(l.done)
