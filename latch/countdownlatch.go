@@ -7,8 +7,11 @@ import (
 
 // NewCountDownLatch creates a new CountDownLatch
 func NewCountDownLatch() *CountDownLatch {
+	// creates a closed channel
+	c := make(chan struct{})
+	close(c)
 	return &CountDownLatch{
-		ch: make(chan struct{}),
+		done: c,
 	}
 }
 
@@ -16,7 +19,7 @@ func NewCountDownLatch() *CountDownLatch {
 type CountDownLatch struct {
 	mu      sync.RWMutex
 	counter int
-	ch      chan struct{}
+	done    chan struct{}
 	closed  bool
 }
 
@@ -25,10 +28,14 @@ func (l *CountDownLatch) Add(delta int) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if delta > 0 && l.counter == 0 {
+		l.done = make(chan struct{})
+	}
+
 	l.counter += delta
 	if l.counter <= 0 && !l.closed {
 		l.closed = true
-		close(l.ch)
+		close(l.done)
 	}
 }
 
@@ -39,13 +46,13 @@ func (l *CountDownLatch) Done() {
 
 // Wait to be unblocked
 func (l *CountDownLatch) Wait() <-chan struct{} {
-	return l.ch
+	return l.done
 }
 
 // WaitWithTimeout waits until the timeout runs out or until the countdown is zero
 func (l *CountDownLatch) WaitWithTimeout(timeout time.Duration) bool {
 	select {
-	case <-l.ch:
+	case <-l.done:
 		return false // completed normally
 	case <-time.After(timeout):
 		l.Close()
@@ -60,7 +67,7 @@ func (l *CountDownLatch) Close() {
 
 	if !l.closed {
 		l.closed = true
-		close(l.ch)
+		close(l.done)
 	}
 }
 

@@ -11,9 +11,11 @@ func TestCountdownLatchOK(t *testing.T) {
 	latch := NewCountDownLatch()
 	latch.Add(2)
 	go func() {
+		time.Sleep(100 * time.Millisecond)
 		latch.Done()
 	}()
 	go func() {
+		time.Sleep(100 * time.Millisecond)
 		latch.Done()
 	}()
 
@@ -37,4 +39,11 @@ func TestCountdownLatchWithTimeout(t *testing.T) {
 
 	timeout := latch.WaitWithTimeout(time.Second)
 	require.True(t, timeout)
+}
+
+func TestCountdownLatchWithTimeoutNoAdd(t *testing.T) {
+	latch := NewCountDownLatch()
+
+	timeout := latch.WaitWithTimeout(time.Second)
+	require.False(t, timeout)
 }
